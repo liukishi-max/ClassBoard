@@ -1,0 +1,738 @@
+// ClassBoard — post classes, let parents enroll online, and confirm payment, all in one tool
+import { useState, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
+
+const STORAGE_KEY = "course-board-data-v1";
+const ORGANIZER_PIN = "1234";
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+const seedCourse = (day, time, name, teacher, capacity, names, description, grades) => ({
+  id: uid(),
+  day,
+  time,
+  name,
+  teacher,
+  capacity,
+  description: description || "",
+  grades: grades || "",
+  students: names.map(([n, note]) => ({ id: uid(), name: n, note: note || "" })),
+});
+
+const DEFAULT_DATA = {
+  title: "Enrichminds Katy",
+  weekLabel: "本周课程安排 · 报名表",
+  teachers: [
+    { id: uid(), name: "Mrs. Richardson", bio: "资深少儿英语老师，教龄10年以上，擅长语法、写作与阅读理解教学，因材施教，课堂氛围活泼。" },
+  ],
+  courses: [
+    seedCourse("Saturday", "1:00–2:00 PM", "Grade 4 Grammar, Vocabulary & Writing", "Mrs. Richardson", 3, [
+      ["George"], ["Ellen"], ["Genevieve"],
+    ], "围绕四年级语法、词汇与写作展开，小班教学，注重基础巩固。", "Grade 4"),
+    seedCourse("Saturday", "2:00–3:00 PM", "Grade 3 English (Private)", "Mrs. Richardson", 1, [["Aiden"]], "一对一私教课，根据学生水平定制教学内容。", "Grade 3"),
+    seedCourse("Saturday", "3:05–4:05 PM", "Grade 7 English", "Mrs. Richardson", 4, [
+      ["Alice"], ["Heyley"], ["Alissa"], ["Christina"],
+    ], "七年级英语综合提升，涵盖阅读、写作与口语表达。", "Grade 7"),
+    seedCourse("Saturday", "4:10–5:10 PM", "Grades 7–9 English", "Mrs. Richardson", 5, [
+      ["Alex"], ["Titus", "老师的孩子"], ["Aiden"], ["Edwin Z"], ["Emma W"],
+    ], "面向7-9年级混龄班，侧重学术英语与写作能力培养。", "Grades 7–9"),
+    seedCourse("Saturday", "5:10–6:10 PM", "Grades 4–6 English", "Mrs. Richardson", 6, [
+      ["Eric"], ["Kaili", "老师的孩子"],
+    ], "4-6年级英语基础巩固与拓展阅读。", "Grades 4–6"),
+  ],
+};
+
+const emptyTeacherForm = { name: "", bio: "" };
+const emptyCourseForm = { day: "", time: "", name: "", teacher: "", capacity: 6, description: "", grades: "" };
+
+export default function CourseBoard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState(false);
+
+  const [isOrganizer, setIsOrganizer] = useState(false);
+  const [pinPrompt, setPinPrompt] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+
+  const [courseForm, setCourseForm] = useState(emptyCourseForm);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(emptyCourseForm);
+
+  const [teacherForm, setTeacherForm] = useState(emptyTeacherForm);
+  const [editingTeacherId, setEditingTeacherId] = useState(null);
+  const [editTeacherForm, setEditTeacherForm] = useState(emptyTeacherForm);
+
+  const [signup, setSignup] = useState(null); // { courseId, name, note, phone4 }
+  const [signupError, setSignupError] = useState("");
+  const [renaming, setRenaming] = useState(null); // { courseId, studentId, value }
+  const [confirmModal, setConfirmModal] = useState(null); // { message, onConfirm }
+
+  function askConfirm(message, onConfirm) {
+    setConfirmModal({ message, onConfirm });
+  }
+
+  const pinInputRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await window.storage.get(STORAGE_KEY, true);
+        const loaded = res && res.value ? JSON.parse(res.value) : DEFAULT_DATA;
+        setData({
+          teachers: [],
+          ...loaded,
+          courses: (loaded.courses || []).map((c) => ({
+            description: "",
+            grades: "",
+            ...c,
+            students: (c.students || []).map((s) => ({ phone4: "", paid: false, ...s })),
+          })),
+        });
+        if (!res) await window.storage.set(STORAGE_KEY, JSON.stringify(DEFAULT_DATA), true);
+      } catch (e) {
+        setData(DEFAULT_DATA);
+        try { await window.storage.set(STORAGE_KEY, JSON.stringify(DEFAULT_DATA), true); } catch (e2) {}
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (pinPrompt && pinInputRef.current) pinInputRef.current.focus();
+  }, [pinPrompt]);
+
+  async function persist(next) {
+    setData(next);
+    try {
+      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(next), true);
+      setSaveError(!result);
+    } catch (e) {
+      setSaveError(true);
+    }
+  }
+
+  function tryUnlock() {
+    if (pinInput === ORGANIZER_PIN) {
+      setIsOrganizer(true);
+      setPinPrompt(false);
+      setPinInput("");
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  }
+
+  function addCourse() {
+    if (!courseForm.day.trim() || !courseForm.time.trim() || !courseForm.name.trim()) return;
+    const next = {
+      ...data,
+      courses: [
+        ...data.courses,
+        {
+          id: uid(),
+          day: courseForm.day.trim(),
+          time: courseForm.time.trim(),
+          name: courseForm.name.trim(),
+          teacher: courseForm.teacher.trim(),
+          capacity: Math.max(1, Number(courseForm.capacity) || 1),
+          description: courseForm.description.trim(),
+          grades: courseForm.grades.trim(),
+          students: [],
+        },
+      ],
+    };
+    persist(next);
+    setCourseForm(emptyCourseForm);
+  }
+
+  function startEdit(c) {
+    setEditingId(c.id);
+    setEditForm({ day: c.day, time: c.time, name: c.name, teacher: c.teacher, capacity: c.capacity, description: c.description || "", grades: c.grades || "" });
+  }
+
+  function saveEdit(id) {
+    const next = {
+      ...data,
+      courses: data.courses.map((c) =>
+        c.id === id
+          ? { ...c, day: editForm.day, time: editForm.time, name: editForm.name, teacher: editForm.teacher, capacity: Math.max(1, Number(editForm.capacity) || 1), description: editForm.description, grades: editForm.grades }
+          : c
+      ),
+    };
+    persist(next);
+    setEditingId(null);
+  }
+
+  function deleteCourse(id) {
+    askConfirm("确定删除这个课程吗？已报名的学生也会一并移除。", () => {
+      persist({ ...data, courses: data.courses.filter((c) => c.id !== id) });
+    });
+  }
+
+  function moveCourse(id, dir) {
+    const idx = data.courses.findIndex((c) => c.id === id);
+    const swap = idx + dir;
+    if (swap < 0 || swap >= data.courses.length) return;
+    const arr = [...data.courses];
+    [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
+    persist({ ...data, courses: arr });
+  }
+
+  function addTeacher() {
+    if (!teacherForm.name.trim()) return;
+    persist({ ...data, teachers: [...(data.teachers || []), { id: uid(), name: teacherForm.name.trim(), bio: teacherForm.bio.trim() }] });
+    setTeacherForm(emptyTeacherForm);
+  }
+
+  function startEditTeacher(t) {
+    setEditingTeacherId(t.id);
+    setEditTeacherForm({ name: t.name, bio: t.bio });
+  }
+
+  function saveEditTeacher(id) {
+    persist({
+      ...data,
+      teachers: (data.teachers || []).map((t) => (t.id === id ? { ...t, name: editTeacherForm.name, bio: editTeacherForm.bio } : t)),
+    });
+    setEditingTeacherId(null);
+  }
+
+  function deleteTeacher(id) {
+    askConfirm("确定删除这位老师的简介吗？课程本身不会被删除。", () => {
+      persist({ ...data, teachers: (data.teachers || []).filter((t) => t.id !== id) });
+    });
+  }
+
+  function submitSignup() {
+    if (!signup || !signup.name.trim()) return;
+    if (!/^\d{4}$/.test(signup.phone4.trim())) {
+      setSignupError("请填写正确的手机号后四位（4位数字）");
+      return;
+    }
+    const course = data.courses.find((c) => c.id === signup.courseId);
+    if (!course || course.students.length >= course.capacity) {
+      setSignup(null);
+      return;
+    }
+    const next = {
+      ...data,
+      courses: data.courses.map((c) =>
+        c.id === signup.courseId
+          ? { ...c, students: [...c.students, { id: uid(), name: signup.name.trim(), note: signup.note.trim(), phone4: signup.phone4.trim(), paid: false }] }
+          : c
+      ),
+    };
+    persist(next);
+    setSignup(null);
+    setSignupError("");
+  }
+
+  function togglePaid(courseId, studentId) {
+    persist({
+      ...data,
+      courses: data.courses.map((c) =>
+        c.id === courseId
+          ? { ...c, students: c.students.map((s) => (s.id === studentId ? { ...s, paid: !s.paid } : s)) }
+          : c
+      ),
+    });
+  }
+
+  function removeStudent(courseId, studentId, name) {
+    askConfirm(`确定要把「${name}」从名单中移除吗？`, () => {
+      persist({
+        ...data,
+        courses: data.courses.map((c) =>
+          c.id === courseId ? { ...c, students: c.students.filter((s) => s.id !== studentId) } : c
+        ),
+      });
+    });
+  }
+
+  function saveRename() {
+    if (!renaming || !renaming.value.trim()) { setRenaming(null); return; }
+    persist({
+      ...data,
+      courses: data.courses.map((c) =>
+        c.id === renaming.courseId
+          ? { ...c, students: c.students.map((s) => (s.id === renaming.studentId ? { ...s, name: renaming.value.trim() } : s)) }
+          : c
+      ),
+    });
+    setRenaming(null);
+  }
+
+  function exportExcel() {
+    const wb = XLSX.utils.book_new();
+
+    // 1. 报名明细（含手机尾号、收款状态，方便收款核对）
+    const detailRows = [];
+    data.courses.forEach((c) => {
+      if (c.students.length === 0) {
+        detailRows.push({ 日期: c.day, 时间: c.time, 课程: c.name, 年级: c.grades || "", 老师: c.teacher, 容量: c.capacity, 已报名: 0, 学生姓名: "", 手机后四位: "", 收款状态: "", 备注: "" });
+      } else {
+        c.students.forEach((s) => {
+          detailRows.push({
+            日期: c.day, 时间: c.time, 课程: c.name, 年级: c.grades || "", 老师: c.teacher, 容量: c.capacity, 已报名: c.students.length,
+            学生姓名: s.name, 手机后四位: s.phone4 || "", 收款状态: s.paid ? "已收款" : "未收款", 备注: s.note || "",
+          });
+        });
+      }
+    });
+    const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+    wsDetail["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, wsDetail, "报名明细");
+
+    // 2. 报满率
+    const fillRows = data.courses.map((c) => ({
+      日期: c.day, 时间: c.time, 课程: c.name, 年级: c.grades || "", 老师: c.teacher,
+      已报名: c.students.length, 容量: c.capacity,
+      报满率: c.capacity ? `${Math.round((c.students.length / c.capacity) * 100)}%` : "-",
+    }));
+    const wsFill = XLSX.utils.json_to_sheet(fillRows);
+    wsFill["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsFill, "报满率");
+
+    // 3. 老师汇总（总课程数 / 总学生人次）
+    const teacherMap = {};
+    data.courses.forEach((c) => {
+      const key = c.teacher || "（未填写老师）";
+      if (!teacherMap[key]) teacherMap[key] = { 老师: key, 总课程数: 0, 总学生人次: 0 };
+      teacherMap[key].总课程数 += 1;
+      teacherMap[key].总学生人次 += c.students.length;
+    });
+    const wsTeacher = XLSX.utils.json_to_sheet(Object.values(teacherMap));
+    wsTeacher["!cols"] = [{ wch: 16 }, { wch: 10 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsTeacher, "老师汇总");
+
+    // 4. 时段汇总（每天/每个时段的总报名人数）
+    const slotMap = {};
+    data.courses.forEach((c) => {
+      const key = `${c.day} ${c.time}`;
+      if (!slotMap[key]) slotMap[key] = { 日期时段: key, 课程数: 0, 总报名人数: 0 };
+      slotMap[key].课程数 += 1;
+      slotMap[key].总报名人数 += c.students.length;
+    });
+    const wsSlot = XLSX.utils.json_to_sheet(Object.values(slotMap));
+    wsSlot["!cols"] = [{ wch: 24 }, { wch: 8 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsSlot, "时段汇总");
+
+    // 5. 空余名额一览（方便招生）
+    const vacancyRows = data.courses
+      .filter((c) => c.students.length < c.capacity)
+      .map((c) => ({ 日期: c.day, 时间: c.time, 课程: c.name, 年级: c.grades || "", 老师: c.teacher, 剩余名额: c.capacity - c.students.length }));
+    const wsVacancy = XLSX.utils.json_to_sheet(vacancyRows);
+    wsVacancy["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsVacancy, "空余名额");
+
+    XLSX.writeFile(wb, `${data.title || "课程"}-报名统计.xlsx`);
+  }
+
+  function resetAll() {
+    askConfirm("确定要清空所有课程和报名数据吗？此操作不可撤销。", () => {
+      persist(DEFAULT_DATA);
+    });
+  }
+
+  if (loading || !data) {
+    return (
+      <div style={{ minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center", background: "#16281F", color: "#FAF6EC", fontFamily: "sans-serif" }}>
+        正在打开课程板…
+      </div>
+    );
+  }
+
+  const dayOrder = [...new Set(data.courses.map((c) => c.day))];
+  const grouped = dayOrder.map((day) => ({ day, items: data.courses.filter((c) => c.day === day) }));
+
+  return (
+    <div className="board-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        .board-root {
+          --bg: #1E3B32;
+          --bg-deep: #16281F;
+          --paper: #FAF6EC;
+          --ink: #2B2118;
+          --ink-soft: #6b5c4a;
+          --mustard: #E8A33D;
+          --coral: #D2574B;
+          --sage: #9FC2A8;
+          font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+          background: radial-gradient(ellipse at top, var(--bg) 0%, var(--bg-deep) 75%);
+          color: var(--paper);
+          min-height: 100vh;
+          padding: 28px 16px 60px;
+          box-sizing: border-box;
+        }
+        .board-root * { box-sizing: border-box; }
+        .disp { font-family: 'Fredoka', 'Noto Sans SC', sans-serif; }
+        .chalk-title {
+          font-size: 30px; font-weight: 700; letter-spacing: 0.5px;
+          text-shadow: 0 0 18px rgba(250,246,236,0.18);
+        }
+        .chalk-sub { color: var(--sage); font-size: 14px; margin-top: 4px; }
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; max-width: 1080px; margin: 0 auto 22px; }
+        .mode-btn {
+          font-family: inherit; font-size: 13px; padding: 8px 14px; border-radius: 999px;
+          border: 1px solid rgba(250,246,236,0.35); background: transparent; color: var(--paper);
+          cursor: pointer; transition: all .15s ease;
+        }
+        .mode-btn:hover { background: rgba(250,246,236,0.1); }
+        .mode-btn.active { background: var(--mustard); color: var(--bg-deep); border-color: var(--mustard); font-weight: 600; }
+        .mode-btn:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--mustard); outline-offset: 2px; }
+
+        .board { max-width: 1080px; margin: 0 auto; }
+        .day-banner {
+          display: inline-block; background: var(--mustard); color: var(--bg-deep);
+          font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 15px;
+          padding: 6px 18px; border-radius: 4px; transform: rotate(-1.2deg);
+          margin: 26px 0 16px; box-shadow: 0 3px 0 rgba(0,0,0,0.2);
+        }
+        .day-banner:first-child { margin-top: 0; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 22px; }
+
+        .card {
+          background: var(--paper); color: var(--ink); border-radius: 3px;
+          padding: 16px 16px 14px; position: relative; box-shadow: 0 10px 22px rgba(0,0,0,0.3);
+          animation: pin-in .35s ease both;
+        }
+        .card.tilt-0 { transform: rotate(-1deg); }
+        .card.tilt-1 { transform: rotate(0.9deg); }
+        .card.tilt-2 { transform: rotate(-0.4deg); }
+        .card:hover { transform: rotate(0deg) translateY(-2px); transition: transform .18s ease; }
+        .pin {
+          position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+          width: 14px; height: 14px; border-radius: 50%; background: var(--coral);
+          box-shadow: 0 2px 3px rgba(0,0,0,0.35), inset 0 -2px 2px rgba(0,0,0,0.2);
+        }
+        .card-time { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 16px; color: var(--ink); }
+        .card-name { font-size: 14.5px; font-weight: 700; margin-top: 3px; line-height: 1.3; }
+        .grade-tag {
+          display: inline-block; margin-top: 5px; font-size: 10.5px; font-weight: 600;
+          background: var(--sage); color: var(--bg-deep); padding: 2px 8px; border-radius: 999px;
+        }
+        .card-teacher { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+        .card-desc { font-size: 12px; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+        .teacher-bio { font-size: 11px; color: var(--ink-soft); margin-top: 3px; line-height: 1.45; font-style: italic; }
+        .seat-row { display: flex; gap: 4px; margin: 10px 0 8px; }
+        .seat-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--mustard); }
+        .seat-dot.empty { background: transparent; border: 1.5px solid var(--ink-soft); opacity: .5; }
+        .roster { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; min-height: 20px; }
+        .chip {
+          background: rgba(43,33,24,0.07); border-radius: 999px; padding: 3px 9px 3px 10px;
+          font-size: 12px; display: flex; align-items: center; gap: 5px;
+        }
+        .chip.paid { background: rgba(63,122,82,0.14); }
+        .chip .note { color: var(--ink-soft); font-size: 10.5px; }
+        .chip button { border: none; background: none; cursor: pointer; color: var(--ink-soft); font-size: 12px; line-height: 1; padding: 0 2px; }
+        .chip button:hover { color: var(--coral); }
+        .chip input { font-size: 11.5px; width: 64px; border: none; border-bottom: 1px dashed var(--ink-soft); background: transparent; font-family: inherit; }
+        .card-empty-hint { font-size: 12px; color: var(--ink-soft); font-style: italic; }
+
+        .cta { width: 100%; font-family: inherit; font-weight: 600; font-size: 13px; padding: 8px 0; border-radius: 999px; border: none; cursor: pointer; }
+        .cta.open { background: var(--bg); color: var(--paper); }
+        .cta.open:hover { background: var(--bg-deep); }
+        .cta.full { background: rgba(210,87,75,0.15); color: var(--coral); cursor: not-allowed; }
+
+        .org-toolbar { display: flex; gap: 8px; }
+
+        .panel {
+          max-width: 1080px; margin: 0 auto 30px; background: rgba(250,246,236,0.06);
+          border: 1px dashed rgba(250,246,236,0.3); border-radius: 8px; padding: 18px 20px;
+        }
+        .panel h3 { font-family: 'Fredoka', sans-serif; margin: 0 0 12px; font-size: 15px; color: var(--mustard); }
+        .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .form-row input {
+          font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 5px;
+          border: 1px solid rgba(250,246,236,0.3); background: rgba(0,0,0,0.15); color: var(--paper);
+        }
+        .form-row input::placeholder { color: rgba(250,246,236,0.4); }
+        .form-row textarea {
+          font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 5px;
+          border: 1px solid rgba(250,246,236,0.3); background: rgba(0,0,0,0.15); color: var(--paper);
+          width: 100%; resize: vertical; min-height: 44px;
+        }
+        .form-row textarea::placeholder { color: rgba(250,246,236,0.4); }
+        .field-with-hint { display: inline-flex; flex-direction: column; gap: 2px; }
+        .field-hint { font-size: 10px; color: rgba(250,246,236,0.45); line-height: 1.2; }
+        .btn-mustard { background: var(--mustard); color: var(--bg-deep); border: none; font-weight: 600; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 13px; }
+        .btn-mustard:hover { filter: brightness(1.08); }
+        .btn-ghost { background: transparent; border: 1px solid rgba(250,246,236,0.3); color: var(--paper); padding: 7px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: inherit; }
+        .btn-ghost:hover { background: rgba(250,246,236,0.08); }
+        .course-manage-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(250,246,236,0.12); font-size: 13px; gap: 10px; flex-wrap: wrap; }
+        .course-manage-row .mini { display: flex; gap: 6px; }
+        .icon-btn { background: none; border: none; color: var(--paper); opacity: .75; cursor: pointer; font-size: 13px; }
+        .icon-btn:hover { opacity: 1; color: var(--mustard); }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(22,40,31,0.7); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+        .modal { background: var(--paper); color: var(--ink); border-radius: 8px; padding: 22px; width: 100%; max-width: 340px; }
+        .modal h4 { font-family: 'Fredoka', sans-serif; margin: 0 0 4px; }
+        .modal p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 14px; }
+        .modal input { width: 100%; font-family: inherit; font-size: 14px; padding: 9px 11px; border-radius: 5px; border: 1px solid #d8cfbc; margin-bottom: 10px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 6px; }
+        .modal-actions button { flex: 1; padding: 9px 0; border-radius: 5px; border: none; font-family: inherit; font-weight: 600; cursor: pointer; font-size: 13px; }
+        .modal-actions .cancel { background: #ece5d5; color: var(--ink); }
+        .modal-actions .confirm { background: var(--bg); color: var(--paper); }
+
+        .footnote { max-width: 1080px; margin: 30px auto 0; font-size: 11.5px; color: rgba(250,246,236,0.45); text-align: center; }
+
+        @keyframes pin-in { from { opacity: 0; transform: translateY(8px) rotate(0deg); } }
+        @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+      `}</style>
+
+      <div className="top-row">
+        <div>
+          <div className="chalk-title disp">
+            {isOrganizer ? (
+              <input
+                value={data.title}
+                onChange={(e) => persist({ ...data, title: e.target.value })}
+                style={{ background: "transparent", border: "none", borderBottom: "1px dashed rgba(250,246,236,0.4)", color: "inherit", font: "inherit", width: "260px" }}
+              />
+            ) : (
+              data.title
+            )}
+          </div>
+          {isOrganizer ? (
+            <input
+              value={data.weekLabel}
+              onChange={(e) => persist({ ...data, weekLabel: e.target.value })}
+              className="chalk-sub"
+              style={{ background: "transparent", border: "none", borderBottom: "1px dashed rgba(159,194,168,0.4)", font: "inherit", width: "220px" }}
+            />
+          ) : (
+            <div className="chalk-sub">{data.weekLabel}</div>
+          )}
+        </div>
+        <div className="org-toolbar">
+          {isOrganizer ? (
+            <button className="mode-btn active" onClick={() => setIsOrganizer(false)}>机构管理中 · 退出</button>
+          ) : (
+            <button className="mode-btn" onClick={() => setPinPrompt(true)}>机构管理</button>
+          )}
+        </div>
+      </div>
+
+      {isOrganizer && (
+        <div className="panel">
+          <h3>添加新课程</h3>
+          <div className="form-row">
+            <input placeholder="日期，如 Saturday" value={courseForm.day} onChange={(e) => setCourseForm({ ...courseForm, day: e.target.value })} style={{ width: 130 }} />
+            <input placeholder="时间段，如 3:05–4:05 PM" value={courseForm.time} onChange={(e) => setCourseForm({ ...courseForm, time: e.target.value })} style={{ width: 160 }} />
+            <input placeholder="课程名称" value={courseForm.name} onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })} style={{ width: 200 }} />
+            <input placeholder="年级，如 Grade 4 / 7–9年级" value={courseForm.grades} onChange={(e) => setCourseForm({ ...courseForm, grades: e.target.value })} style={{ width: 140 }} />
+            <input placeholder="任课老师" value={courseForm.teacher} onChange={(e) => setCourseForm({ ...courseForm, teacher: e.target.value })} style={{ width: 130 }} />
+            <span className="field-with-hint">
+              <input type="number" min="1" placeholder="名额" title="该数字设定本课程最多招收的人数，报满后家长将无法继续报名" value={courseForm.capacity} onChange={(e) => setCourseForm({ ...courseForm, capacity: e.target.value })} style={{ width: 70 }} />
+              <span className="field-hint">最多招收人数</span>
+            </span>
+          </div>
+          <div className="form-row">
+            <textarea placeholder="课程简介（选填，如教学内容、适合人群等）" value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} />
+          </div>
+          <button className="btn-mustard" onClick={addCourse}>+ 添加课程</button>
+
+          <h3 style={{ marginTop: 18 }}>管理已有课程</h3>
+          {data.courses.length === 0 && <div className="chalk-sub">还没有课程，先在上面添加一个吧。</div>}
+          {data.courses.map((c, i) =>
+            editingId === c.id ? (
+              <div key={c.id} style={{ paddingBottom: 10, borderBottom: "1px solid rgba(250,246,236,0.12)" }}>
+                <div className="form-row" style={{ marginBottom: 6 }}>
+                  <input value={editForm.day} onChange={(e) => setEditForm({ ...editForm, day: e.target.value })} style={{ width: 110 }} />
+                  <input value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })} style={{ width: 150 }} />
+                  <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} style={{ width: 180 }} />
+                  <input value={editForm.grades} onChange={(e) => setEditForm({ ...editForm, grades: e.target.value })} placeholder="年级" style={{ width: 100 }} />
+                  <input value={editForm.teacher} onChange={(e) => setEditForm({ ...editForm, teacher: e.target.value })} style={{ width: 110 }} />
+                  <span className="field-with-hint">
+                    <input type="number" min="1" title="该数字设定本课程最多招收的人数，报满后家长将无法继续报名" value={editForm.capacity} onChange={(e) => setEditForm({ ...editForm, capacity: e.target.value })} style={{ width: 60 }} />
+                    <span className="field-hint">最多招收人数</span>
+                  </span>
+                </div>
+                <div className="form-row">
+                  <textarea placeholder="课程简介（选填）" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+                </div>
+                <button className="btn-mustard" onClick={() => saveEdit(c.id)}>保存</button>{" "}
+                <button className="btn-ghost" onClick={() => setEditingId(null)}>取消</button>
+              </div>
+            ) : (
+              <div className="course-manage-row" key={c.id}>
+                <span>
+                  <b className="disp">{c.day} {c.time}</b> — {c.name}{c.grades && ` · ${c.grades}`}（{c.students.length}/{c.capacity}）
+                </span>
+                <span className="mini">
+                  <button className="icon-btn" onClick={() => moveCourse(c.id, -1)} disabled={i === 0}>↑</button>
+                  <button className="icon-btn" onClick={() => moveCourse(c.id, 1)} disabled={i === data.courses.length - 1}>↓</button>
+                  <button className="icon-btn" onClick={() => startEdit(c)}>编辑</button>
+                  <button className="icon-btn" onClick={() => deleteCourse(c.id)}>删除</button>
+                </span>
+              </div>
+            )
+          )}
+
+          <h3 style={{ marginTop: 18 }}>老师简介管理</h3>
+          {(data.teachers || []).length === 0 && <div className="chalk-sub" style={{ marginBottom: 10 }}>还没有老师简介，添加一位吧。</div>}
+          {(data.teachers || []).map((t) =>
+            editingTeacherId === t.id ? (
+              <div key={t.id} style={{ paddingBottom: 10, borderBottom: "1px solid rgba(250,246,236,0.12)", marginBottom: 8 }}>
+                <div className="form-row" style={{ marginBottom: 6 }}>
+                  <input value={editTeacherForm.name} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, name: e.target.value })} placeholder="老师姓名" style={{ width: 160 }} />
+                </div>
+                <div className="form-row">
+                  <textarea value={editTeacherForm.bio} onChange={(e) => setEditTeacherForm({ ...editTeacherForm, bio: e.target.value })} placeholder="老师简介" />
+                </div>
+                <button className="btn-mustard" onClick={() => saveEditTeacher(t.id)}>保存</button>{" "}
+                <button className="btn-ghost" onClick={() => setEditingTeacherId(null)}>取消</button>
+              </div>
+            ) : (
+              <div className="course-manage-row" key={t.id}>
+                <span>
+                  <b className="disp">{t.name}</b>
+                  {t.bio && <span style={{ color: "rgba(250,246,236,0.6)" }}> — {t.bio}</span>}
+                </span>
+                <span className="mini">
+                  <button className="icon-btn" onClick={() => startEditTeacher(t)}>编辑</button>
+                  <button className="icon-btn" onClick={() => deleteTeacher(t.id)}>删除</button>
+                </span>
+              </div>
+            )
+          )}
+          <div className="form-row" style={{ marginTop: 10 }}>
+            <input placeholder="老师姓名" value={teacherForm.name} onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })} style={{ width: 160 }} />
+          </div>
+          <div className="form-row">
+            <textarea placeholder="老师简介（教学经验、擅长方向等）" value={teacherForm.bio} onChange={(e) => setTeacherForm({ ...teacherForm, bio: e.target.value })} />
+          </div>
+          <button className="btn-mustard" onClick={addTeacher}>+ 添加老师简介</button>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+            <button className="btn-mustard" onClick={exportExcel}>导出 Excel 名单</button>
+            <button className="btn-ghost" onClick={resetAll}>清空重置</button>
+          </div>
+          {saveError && <div style={{ color: "var(--coral)", fontSize: 12, marginTop: 8 }}>保存失败，请检查网络后重试。</div>}
+        </div>
+      )}
+
+      <div className="board">
+        {grouped.map(({ day, items }) => (
+          <div key={day}>
+            <div className="day-banner disp">{day}</div>
+            <div className="cards">
+              {items.map((c, i) => {
+                const full = c.students.length >= c.capacity;
+                return (
+                  <div className={`card tilt-${i % 3}`} key={c.id}>
+                    <div className="pin" />
+                    <div className="card-time disp">{c.time}</div>
+                    <div className="card-name">{c.name}</div>
+                    {c.grades && <span className="grade-tag disp">{c.grades}</span>}
+                    {c.teacher && <div className="card-teacher">{c.teacher}</div>}
+                    {c.teacher && (data.teachers || []).find((t) => t.name === c.teacher)?.bio && (
+                      <div className="teacher-bio">{(data.teachers || []).find((t) => t.name === c.teacher).bio}</div>
+                    )}
+                    {c.description && <div className="card-desc">{c.description}</div>}
+
+                    <div className="seat-row">
+                      {Array.from({ length: c.capacity }).map((_, idx) => (
+                        <span key={idx} className={`seat-dot${idx < c.students.length ? "" : " empty"}`} />
+                      ))}
+                    </div>
+
+                    <div className="roster">
+                      {c.students.length === 0 && <span className="card-empty-hint">还没有人报名</span>}
+                      {c.students.map((s) =>
+                        renaming && renaming.studentId === s.id ? (
+                          <span className="chip" key={s.id}>
+                            <input autoFocus value={renaming.value} onChange={(e) => setRenaming({ ...renaming, value: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveRename()} />
+                            <button onClick={saveRename}>✓</button>
+                          </span>
+                        ) : (
+                          <span className={`chip${isOrganizer && s.paid ? " paid" : ""}`} key={s.id}>
+                            {s.name}{s.note && <span className="note">（{s.note}）</span>}
+                            {isOrganizer && s.phone4 && <span className="note">尾号{s.phone4}</span>}
+                            {isOrganizer && (
+                              <button title={s.paid ? "已收款，点击可改回未收款" : "点击标记为已收款"} onClick={() => togglePaid(c.id, s.id)} style={{ color: s.paid ? "#3f7a52" : "var(--coral)", fontWeight: 600 }}>
+                                {s.paid ? "✓已收" : "待收款"}
+                              </button>
+                            )}
+                            {isOrganizer && <button title="改名" onClick={() => setRenaming({ courseId: c.id, studentId: s.id, value: s.name })}>✎</button>}
+                            {isOrganizer && <button title="移除" onClick={() => removeStudent(c.id, s.id, s.name)}>×</button>}
+                          </span>
+                        )
+                      )}
+                    </div>
+
+                    <button className={`cta ${full ? "full" : "open"}`} disabled={full} onClick={() => { setSignup({ courseId: c.id, name: "", note: "", phone4: "" }); setSignupError(""); }}>
+                      {full ? "名额已满" : "我要报名"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {data.courses.length === 0 && <div className="chalk-sub" style={{ textAlign: "center", marginTop: 40 }}>暂无课程，请机构管理员先添加课程</div>}
+      </div>
+
+      <div className="footnote">名额满时会自动停止报名 · 如需取消报名，请联系机构管理员处理</div>
+
+      {pinPrompt && (
+        <div className="modal-overlay" onClick={() => setPinPrompt(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h4 className="disp">机构管理验证</h4>
+            <p>请输入管理密码以编辑课程</p>
+            <input ref={pinInputRef} type="password" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} onKeyDown={(e) => e.key === "Enter" && tryUnlock()} placeholder="密码" />
+            {pinError && <div style={{ color: "var(--coral)", fontSize: 12, marginTop: -6, marginBottom: 8 }}>密码不对，再试一次</div>}
+            <div className="modal-actions">
+              <button className="cancel" onClick={() => { setPinPrompt(false); setPinInput(""); setPinError(false); }}>取消</button>
+              <button className="confirm" onClick={tryUnlock}>确认</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {signup && (
+        <div className="modal-overlay" onClick={() => { setSignup(null); setSignupError(""); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h4 className="disp">课程报名</h4>
+            <p>{data.courses.find((c) => c.id === signup.courseId)?.name}</p>
+            <input autoFocus placeholder="学生姓名" value={signup.name} onChange={(e) => setSignup({ ...signup, name: e.target.value })} />
+            <input
+              placeholder="家长手机号后四位（用于核对身份和收款）"
+              value={signup.phone4}
+              maxLength={4}
+              onChange={(e) => setSignup({ ...signup, phone4: e.target.value.replace(/\D/g, "") })}
+            />
+            <input placeholder="备注（选填，如：老师的孩子）" value={signup.note} onChange={(e) => setSignup({ ...signup, note: e.target.value })} />
+            {signupError && <div style={{ color: "var(--coral)", fontSize: 12, marginTop: -6, marginBottom: 10 }}>{signupError}</div>}
+            <div className="modal-actions">
+              <button className="cancel" onClick={() => { setSignup(null); setSignupError(""); }}>取消</button>
+              <button className="confirm" onClick={submitSignup}>确认报名</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmModal && (
+        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h4 className="disp">请确认</h4>
+            <p style={{ marginBottom: 18 }}>{confirmModal.message}</p>
+            <div className="modal-actions">
+              <button className="cancel" onClick={() => setConfirmModal(null)}>取消</button>
+              <button
+                className="confirm"
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
