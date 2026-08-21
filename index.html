@@ -1,8 +1,24 @@
-// ClassBoard — post classes, let parents enroll online, and confirm payment, all in one tool
-import { useState, useEffect, useRef } from "react";
-import * as XLSX from "xlsx";
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Enrichminds Katy · 课程报名板</title>
 
-const STORAGE_KEY = "course-board-data-v1";
+<!-- React / ReactDOM -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<!-- 让浏览器直接认识下面的 JSX（不需要提前用 npm 构建） -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<!-- 导出 Excel 用 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin></script>
+</head>
+<body style="margin:0;">
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
 const ORGANIZER_PIN = "1234";
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -44,7 +60,7 @@ const DEFAULT_DATA = {
 const emptyTeacherForm = { name: "", bio: "" };
 const emptyCourseForm = { day: "", time: "", name: "", teacher: "", capacity: 6, description: "", grades: "" };
 
-export default function CourseBoard() {
+function CourseBoard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState(false);
@@ -76,8 +92,9 @@ export default function CourseBoard() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await window.storage.get(STORAGE_KEY, true);
-        const loaded = res && res.value ? JSON.parse(res.value) : DEFAULT_DATA;
+        const res = await fetch("/api/data");
+        const json = await res.json();
+        const loaded = json && json.value ? json.value : DEFAULT_DATA;
         setData({
           teachers: [],
           ...loaded,
@@ -88,10 +105,15 @@ export default function CourseBoard() {
             students: (c.students || []).map((s) => ({ phone4: "", paid: false, ...s })),
           })),
         });
-        if (!res) await window.storage.set(STORAGE_KEY, JSON.stringify(DEFAULT_DATA), true);
+        if (!json || !json.value) {
+          await fetch("/api/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(DEFAULT_DATA),
+          });
+        }
       } catch (e) {
         setData(DEFAULT_DATA);
-        try { await window.storage.set(STORAGE_KEY, JSON.stringify(DEFAULT_DATA), true); } catch (e2) {}
       } finally {
         setLoading(false);
       }
@@ -105,8 +127,12 @@ export default function CourseBoard() {
   async function persist(next) {
     setData(next);
     try {
-      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(next), true);
-      setSaveError(!result);
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      setSaveError(!res.ok);
     } catch (e) {
       setSaveError(true);
     }
@@ -264,6 +290,7 @@ export default function CourseBoard() {
   }
 
   function exportExcel() {
+    const XLSX = window.XLSX;
     const wb = XLSX.utils.book_new();
 
     // 1. 报名明细（含手机尾号、收款状态，方便收款核对）
@@ -736,3 +763,8 @@ export default function CourseBoard() {
     </div>
   );
 }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<CourseBoard />);
+</script>
+</body>
+</html>
