@@ -274,6 +274,9 @@
 
 <script>
 const ADMIN_PASSWORD = "1234";
+// 从网址参数里读取机构标识，例如 ?org=katy —— 不同机构用不同的 org 参数，
+// 数据会各自独立存储，互不影响。没带参数时用 "main_data"，兼容之前已有的数据。
+const ORG_ID = (new URLSearchParams(window.location.search).get('org') || 'main_data').trim() || 'main_data';
 const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard", feeNotice: "" }, loaded:false };
 let isAdmin = false;
 let openRosters = {}; 
@@ -282,7 +285,7 @@ function initFirebaseSync(){
   const db = window.firebaseDb;
   const { doc, onSnapshot } = window.FirebaseSdk;
 
-  onSnapshot(doc(db, "classboard", "main_data"), (docSnap) => {
+  onSnapshot(doc(db, "classboard", ORG_ID), (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data();
       state.courses = data.courses || [];
@@ -310,7 +313,7 @@ async function syncToCloud(){
   try {
     const db = window.firebaseDb;
     const { doc, setDoc } = window.FirebaseSdk;
-    await setDoc(doc(db, "classboard", "main_data"), {
+    await setDoc(doc(db, "classboard", ORG_ID), {
       courses: state.courses,
       teachers: state.teachers,
       signups: state.signups,
