@@ -38,18 +38,18 @@
   :root{
     --ink:#1F2A24;
     --ink-soft:#3A453F;
-    --paper:#F1F3EC;
-    --paper-deep:#E7EBE0;
+    --paper:#F7F4EC;
+    --paper-deep:#EFE9DA;
     --card:#FFFFFF;
     --moss:#3F6B52;
     --moss-dark:#2C4C3B;
-    --moss-tint:#E4EDE6;
+    --moss-tint:#E3EDE5;
     --amber:#C98A2C;
     --amber-tint:#FBF1DF;
     --brick:#A9463D;
     --brick-tint:#F7E7E5;
     --slate:#5B6B63;
-    --line:#DADFD2;
+    --line:#DCD5C0;
     --radius:14px;
     --shadow: 0 1px 2px rgba(31,42,36,0.06), 0 6px 20px rgba(31,42,36,0.05);
   }
@@ -100,6 +100,11 @@
   .fee-notice-label{ font-weight:800; font-size:13px; color:#8a611f; }
   .fee-notice-text{ font-size:13.5px; color:#6b4c17; white-space:pre-wrap; line-height:1.6; }
   .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
+
+  .seed-notice{
+    background:var(--amber-tint); border:1px dashed var(--amber); border-radius:12px;
+    padding:10px 15px; margin-bottom:18px; font-size:12.5px; color:#8a611f; line-height:1.6;
+  }
 
   .header-actions{
     display:flex; gap:8px; flex-wrap:wrap; align-items:center;
@@ -169,11 +174,11 @@
   /* 信息方块：上课时间 / 年级 / 剩余名额 — 各自独立浅色区块，参考报名系统的工整卡片风格 */
   .info-grid{
     display:grid; grid-template-columns:repeat(auto-fit, minmax(84px, 1fr));
-    background:var(--line); border:1px solid var(--line); border-radius:12px;
+    background:rgba(63,107,82,0.22); border:1px solid rgba(63,107,82,0.22); border-radius:12px;
     gap:1px; overflow:hidden;
   }
   .info-cell{
-    background:var(--paper-deep); padding:9px 11px 10px; display:flex; flex-direction:column; gap:3px; min-width:0;
+    background:var(--moss-tint); padding:9px 11px 10px; display:flex; flex-direction:column; gap:3px; min-width:0;
   }
   .info-label{
     font-size:10.5px; font-weight:600; color:var(--slate); letter-spacing:0.2px;
@@ -190,7 +195,7 @@
 
   /* 课程简介：独立浅色区块 */
   .desc-block{
-    background:var(--paper-deep); border:1px solid var(--line); border-radius:12px; padding:11px 13px;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px; padding:11px 13px;
   }
   .desc-wrap{ display:flex; flex-direction:column; gap:4px; }
   .desc{
@@ -213,7 +218,7 @@
   /* 授课老师：独立浅色区块，头像 + 姓名 */
   .teacher-block{
     display:flex; align-items:center; gap:10px;
-    background:var(--paper-deep); border:1px solid var(--line); border-radius:12px;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px;
     padding:9px 13px;
   }
   .teacher-avatar{
@@ -349,6 +354,36 @@ let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
 
+/* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
+   管理员可以直接在「机构管理」里编辑或删除这门课，改成自己的真实课程即可。 */
+function templateSeedData(){
+  const teacherId = 'seed-teacher-erin';
+  const courseId = 'seed-course-math';
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  const dateStr = d.toISOString().slice(0,10);
+  return {
+    courses: [{
+      id: courseId,
+      name: '数学试课',
+      date: dateStr,
+      grade: '一至三年级',
+      startTime: '09:00',
+      endTime: '10:00',
+      teacherId: teacherId,
+      capacity: 6,
+      description: 'Ms. Erin 拥有10年以上少儿教育经验，擅长用引导式提问带动孩子独立思考，帮助建立数感与逻辑思维习惯。本次试课从生活情境切入，让孩子在轻松的氛围中体验数学的乐趣，欢迎家长陪同试听。'
+    }],
+    teachers: [{
+      id: teacherId,
+      name: 'Ms. Erin',
+      bio: '10年以上少儿数学与思维教学经验，擅长思维引导式教学，课堂氛围轻松有趣，深受学生和家长喜爱。'
+    }],
+    signups: [],
+    settings: { orgName: "ClassBoard", feeNotice: "" }
+  };
+}
+
 function initFirebaseSync(){
   const db = window.firebaseDb;
   const { doc, onSnapshot } = window.FirebaseSdk;
@@ -361,10 +396,11 @@ function initFirebaseSync(){
       state.signups = data.signups || [];
       state.settings = data.settings || { orgName: "ClassBoard", feeNotice: "" };
     } else {
-      state.courses = [];
-      state.teachers = [];
-      state.signups = [];
-      state.settings = { orgName: "ClassBoard", feeNotice: "" };
+      const seed = templateSeedData();
+      state.courses = seed.courses;
+      state.teachers = seed.teachers;
+      state.signups = seed.signups;
+      state.settings = seed.settings;
     }
     state.loaded = true;
     renderBrand();
@@ -602,6 +638,7 @@ function renderBoard(){
     </div>`;
     return;
   }
+  const isSeedOnly = state.courses.length===1 && state.courses[0].id==='seed-course-math';
   const groups = {};
   state.courses.forEach(c=>{
     const key = c.date || '未设置日期';
@@ -609,6 +646,9 @@ function renderBoard(){
   });
   const sortedDates = Object.keys(groups).sort((a,b)=> a.localeCompare(b));
   let html = '';
+  if(isSeedOnly){
+    html += `<div class="seed-notice">👋 这是示例课程，帮你预览页面效果${isAdmin ? '，可点击下方「编辑」改成真实课程，或「删除」后自行发布' : '，机构正式课程发布后会替换成真实内容'}</div>`;
+  }
   sortedDates.forEach(date=>{
     const courses = groups[date].sort((a,b)=> (a.startTime||'').localeCompare(b.startTime||''));
     html += `<div class="date-divider"><span class="date-label">${formatDateLabel(date)}</span><span class="date-line"></span></div>`;
