@@ -7,6 +7,34 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- 引入 Firebase 模块 SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  // ================= 请把这里换成你的 Firebase 配置 =================
+  const firebaseConfig = {
+    apiKey: "你的apiKey",
+    authDomain: "classboard-682cd.firebaseapp.com",
+    projectId: "classboard-682cd",
+    storageBucket: "classboard-682cd.appspot.com",
+    messagingSenderId: "96309189331",
+    appId: "你的appId"
+  };
+  // ===============================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 挂载到全局，供下方业务逻辑调用
+  window.firebaseDb = db;
+  window.FirebaseSdk = { doc, setDoc, onSnapshot };
+
+  // 启动数据加载与实时监听
+  initFirebaseSync();
+</script>
+
 <style>
   :root{
     --ink:#1F2A24;
@@ -250,7 +278,50 @@
 const ADMIN_PASSWORD = "1234";
 const state = { courses: [], teachers: [], signups: [], loaded:false };
 let isAdmin = false;
-let openRosters = {}; // courseId -> bool, keep expanded state across re-render
+let openRosters = {}; 
+
+/* ======================= Firebase 同步层 ======================= */
+function initFirebaseSync(){
+  const db = window.firebaseDb;
+  const { doc, onSnapshot } = window.FirebaseSdk;
+
+  // 实时监听云端数据，多端秒级同步
+  onSnapshot(doc(db, "classboard", "main_data"), (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      state.courses = data.courses || [];
+      state.teachers = data.teachers || [];
+      state.signups = data.signups || [];
+    } else {
+      state.courses = [];
+      state.teachers = [];
+      state.signups = [];
+    }
+    state.loaded = true;
+    renderBoard();
+    renderHeaderActions();
+  }, (error) => {
+    console.error("Firebase 监听失败:", error);
+    toast("数据同步异常，请检查网络", true);
+  });
+}
+
+async function syncToCloud(){
+  try {
+    const db = window.firebaseDb;
+    const { doc, setDoc } = window.FirebaseSdk;
+    await setDoc(doc(db, "classboard", "main_data"), {
+      courses: state.courses,
+      teachers: state.teachers,
+      signups: state.signups
+    });
+    return true;
+  } catch(e) {
+    console.error("同步云端失败:", e);
+    toast('保存失败，请检查网络后重试', true);
+    return false;
+  }
+}
 
 /* ======================= 工具函数 ======================= */
 function escapeHtml(str){
@@ -295,44 +366,10 @@ function enrolledOf(courseId){
   return state.signups.filter(s=>s.courseId===courseId);
 }
 
-/* ======================= 存储层 ======================= */
-async function safeGet(key){
-  try{
-    const r = await window.storage.get(key, true);
-    return r ? r.value : null;
-  }catch(e){ return null; }
-}
-async function loadData(){
-  const ct = await safeGet('classboard-courses-teachers');
-  if(ct){
-    try{ const parsed = JSON.parse(ct); state.courses = parsed.courses||[]; state.teachers = parsed.teachers||[]; }
-    catch(e){ state.courses=[]; state.teachers=[]; }
-  }
-  const su = await safeGet('classboard-signups');
-  if(su){
-    try{ state.signups = JSON.parse(su)||[]; }
-    catch(e){ state.signups=[]; }
-  }
-  state.loaded = true;
-}
-async function saveCoursesTeachers(){
-  try{
-    const r = await window.storage.set('classboard-courses-teachers', JSON.stringify({courses:state.courses, teachers:state.teachers}), true);
-    if(!r){ toast('保存失败，请检查网络后重试', true); return false; }
-    return true;
-  }catch(e){ toast('保存失败，请检查网络后重试', true); return false; }
-}
-async function saveSignups(){
-  try{
-    const r = await window.storage.set('classboard-signups', JSON.stringify(state.signups), true);
-    if(!r){ toast('保存失败，请检查网络后重试', true); return false; }
-    return true;
-  }catch(e){ toast('保存失败，请检查网络后重试', true); return false; }
-}
-
 /* ======================= 渲染：头部操作区 ======================= */
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
+  if(!el) return;
   if(isAdmin){
     el.innerHTML = `
       <span class="admin-pill"><span class="dot"></span>机构管理模式</span>
@@ -423,6 +460,7 @@ function courseCardHtml(course){
 
 function renderBoard(){
   const el = document.getElementById('boardArea');
+  if(!el) return;
   if(!state.loaded){
     el.innerHTML = `<div class="empty-state"><div class="glyph">⏳</div><p>正在加载课程板…</p></div>`;
     return;
@@ -460,7 +498,7 @@ async function togglePaid(signupId){
   if(!s) return;
   s.paid = !s.paid;
   renderBoard();
-  const ok = await saveSignups();
+  const ok = await syncToCloud();
   if(ok) toast(s.paid? '已标记为已收款' : '已标记为待收款');
 }
 
@@ -514,7 +552,7 @@ function exitAdmin(){
   toast('已退出管理模式');
 }
 
-/* ======================= 老师简介弹窗（家长视角） ======================= */
+/* ======================= 老师简介弹窗 ======================= */
 function showTeacherBio(teacherId){
   const t = state.teachers.find(x=>x.id===teacherId);
   if(!t) return;
@@ -554,10 +592,6 @@ async function submitSignup(courseId){
   if(!name){ toast('请填写孩子姓名', true); return; }
   if(!/^\d{4}$/.test(phone)){ toast('请输入手机号后四位数字', true); return; }
 
-  // 重新拉取最新报名数据，减少并发抢占名额的误差
-  const su = await safeGet('classboard-signups');
-  if(su){ try{ state.signups = JSON.parse(su)||[]; }catch(e){} }
-
   const course = state.courses.find(c=>c.id===courseId);
   const meta = seatMeta(course);
   if(meta.status==='full'){
@@ -570,7 +604,7 @@ async function submitSignup(courseId){
   closeModal();
   openRosters[courseId] = true;
   renderBoard();
-  const ok = await saveSignups();
+  const ok = await syncToCloud();
   if(ok) toast('报名成功！可在课程卡片下方查看名单');
 }
 
@@ -677,7 +711,7 @@ async function submitCourseForm(courseId){
   }
   closeModal();
   renderBoard();
-  const ok = await saveCoursesTeachers();
+  const ok = await syncToCloud();
   if(ok) toast(courseId? '课程已更新' : '课程已发布');
 }
 async function deleteCourse(courseId){
@@ -689,8 +723,7 @@ async function deleteCourse(courseId){
   state.courses = state.courses.filter(c=>c.id!==courseId);
   state.signups = state.signups.filter(s=>s.courseId!==courseId);
   renderBoard();
-  await saveCoursesTeachers();
-  await saveSignups();
+  await syncToCloud();
   toast('课程已删除');
 }
 
@@ -727,7 +760,7 @@ async function addTeacher(){
   const name = document.getElementById('newTeacherName').value.trim();
   if(!name){ toast('请填写老师姓名', true); return; }
   state.teachers.push({ id: uid(), name, bio:'' });
-  await saveCoursesTeachers();
+  await syncToCloud();
   renderTeacherManageModal();
   renderBoard();
   toast('老师已添加');
@@ -736,7 +769,7 @@ async function updateTeacherField(teacherId, field, value){
   const t = state.teachers.find(x=>x.id===teacherId);
   if(!t) return;
   t[field] = value.trim();
-  const ok = await saveCoursesTeachers();
+  const ok = await syncToCloud();
   renderBoard();
   if(ok) toast('已保存');
 }
@@ -745,7 +778,7 @@ async function deleteTeacher(teacherId){
   if(used && !confirm('有课程正在使用这位老师，删除后对应课程会显示"未指定老师"，确定删除吗？')) return;
   state.teachers = state.teachers.filter(t=>t.id!==teacherId);
   state.courses.forEach(c=>{ if(c.teacherId===teacherId) c.teacherId=''; });
-  await saveCoursesTeachers();
+  await syncToCloud();
   renderTeacherManageModal();
   renderBoard();
   toast('老师已删除');
@@ -758,7 +791,6 @@ function exportExcel(){
 
   const teacherName = id => (state.teachers.find(t=>t.id===id)||{}).name || '未指定';
 
-  // 1. 报名明细
   const detail = [['课程名称','上课日期','上课时间','学生姓名','家长手机尾号','付款状态','报名时间']];
   state.signups.forEach(s=>{
     const c = state.courses.find(c=>c.id===s.courseId);
@@ -771,7 +803,6 @@ function exportExcel(){
     ]);
   });
 
-  // 2. 各时段人数 & 剩余名额 & 报满率
   const summary = [['日期','时间','课程名称','老师','已报名','名额上限','剩余名额','报满率']];
   state.courses.forEach(c=>{
     const meta = seatMeta(c);
@@ -779,7 +810,6 @@ function exportExcel(){
       meta.enrolled, meta.cap, meta.remaining, `${Math.round((meta.enrolled/meta.cap)*100)}%`]);
   });
 
-  // 3. 老师带课统计
   const teacherStats = {};
   state.courses.forEach(c=>{
     const name = teacherName(c.teacherId);
@@ -787,34 +817,18 @@ function exportExcel(){
     teacherStats[name].courses += 1;
     teacherStats[name].students += enrolledOf(c.id).length;
   });
-  const teacherSheet = [['老师','带课数','学生总数']];
-  Object.keys(teacherStats).forEach(name=>{
-    teacherSheet.push([name, teacherStats[name].courses, teacherStats[name].students]);
+  const tRows = [['老师姓名','带课数量','总报名人数']];
+  Object.keys(teacherStats).forEach(k=>{
+    tRows.push([k, teacherStats[k].courses, teacherStats[k].students]);
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), '报名明细');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), '各时段与报满率');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(teacherSheet), '老师带课统计');
-
-  const dateStr = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `ClassBoard报名统计_${dateStr}.xlsx`);
-  toast('已导出 Excel');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), "报名明细");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "课程概览");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tRows), "老师统计");
+  XLSX.writeFile(wb, `ClassBoard_报表_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel 导出成功');
 }
-
-/* ======================= 初始化 & 轮询刷新 ======================= */
-async function init(){
-  renderHeaderActions();
-  renderBoard();
-  await loadData();
-  renderBoard();
-  setInterval(async ()=>{
-    if(document.getElementById('modalRoot').innerHTML.trim() !== '') return; // 弹窗打开时不刷新，避免打断输入
-    await loadData();
-    renderBoard();
-  }, 8000);
-}
-init();
 </script>
 </body>
 </html>
