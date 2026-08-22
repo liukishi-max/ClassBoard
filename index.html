@@ -79,9 +79,9 @@
   .wrap{ max-width: 1080px; margin: 0 auto; padding: 20px 20px 80px; }
 
   header{
-    display:flex; align-items:flex-start; justify-content:space-between;
-    gap:16px; flex-wrap:wrap; padding-top: 8px;
+    display:flex; flex-direction:column; gap:12px; padding-top: 8px;
   }
+  .header-top{ display:flex; align-items:center; }
   .brand{ display:flex; align-items:baseline; gap:11px; }
   .brand-mark{
     display:inline-flex; align-items:center; justify-content:center;
@@ -101,7 +101,11 @@
   .fee-notice-text{ font-size:13.5px; color:#6b4c17; white-space:pre-wrap; line-height:1.6; }
   .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
 
-  .header-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .header-actions{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    padding-top:11px; border-top:1px dashed var(--line);
+  }
+  .header-actions:empty{ display:none; }
   .btn{
     border:1.5px solid var(--ink); background:var(--card); color:var(--ink);
     padding:9px 17px; border-radius:999px; font-size:13.5px; font-weight:700;
@@ -157,23 +161,36 @@
   .card::before{
     content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--card-accent, var(--moss));
   }
-  .badges{ display:flex; gap:6px; flex-wrap:wrap; }
-  .badge{
-    font-size:11.5px; font-weight:600; padding:3.5px 10px; border-radius:999px;
-    background:var(--paper-deep); color:var(--ink-soft); font-family:'IBM Plex Mono', monospace;
-    letter-spacing:0.2px;
-  }
-  .badge.time{ background:var(--moss-tint); color:var(--moss-dark); }
-  .badge.grade{ background:var(--amber-tint); color:#8a611f; }
   .course-name{
-    font-family:'Noto Serif SC', serif; font-weight:700; font-size:19.5px; margin:3px 0 0;
+    font-family:'Noto Serif SC', serif; font-weight:700; font-size:19.5px; margin:0;
     letter-spacing:0.2px; line-height:1.4; color:var(--ink);
   }
-  .teacher-line{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft); margin:0; }
-  .teacher-line b{ font-weight:700; color:var(--ink); letter-spacing:0.1px; }
-  .link-btn{
-    background:none; border:none; color:var(--moss); font-size:12px; font-weight:700;
-    text-decoration:underline; text-underline-offset:2px; padding:0;
+
+  /* 信息方块：上课时间 / 年级 / 剩余名额 — 各自独立浅色区块，参考报名系统的工整卡片风格 */
+  .info-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(84px, 1fr));
+    background:var(--line); border:1px solid var(--line); border-radius:12px;
+    gap:1px; overflow:hidden;
+  }
+  .info-cell{
+    background:var(--paper-deep); padding:9px 11px 10px; display:flex; flex-direction:column; gap:3px; min-width:0;
+  }
+  .info-label{
+    font-size:10.5px; font-weight:600; color:var(--slate); letter-spacing:0.2px;
+    display:flex; align-items:center; gap:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .info-value{
+    font-size:13px; font-weight:700; color:var(--ink); line-height:1.35; letter-spacing:0.1px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .info-value-sub{ font-weight:600; color:var(--ink-soft); font-size:12px; }
+  .info-value.seat-full{ color:var(--brick); }
+  .info-value.seat-low{ color:var(--amber); }
+  .info-cell .seat-dots{ margin-top:2px; }
+
+  /* 课程简介：独立浅色区块 */
+  .desc-block{
+    background:var(--paper-deep); border:1px solid var(--line); border-radius:12px; padding:11px 13px;
   }
   .desc-wrap{ display:flex; flex-direction:column; gap:4px; }
   .desc{
@@ -193,16 +210,35 @@
   .desc-toggle .chev{ font-size:9px; transition: transform .15s ease; display:inline-block; }
   .desc-toggle.open .chev{ transform: rotate(180deg); }
 
-  .seats-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:2px; }
+  /* 授课老师：独立浅色区块，头像 + 姓名 */
+  .teacher-block{
+    display:flex; align-items:center; gap:10px;
+    background:var(--paper-deep); border:1px solid var(--line); border-radius:12px;
+    padding:9px 13px;
+  }
+  .teacher-avatar{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(155deg, var(--moss), var(--moss-dark)); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Noto Serif SC', serif; font-weight:800; font-size:13px;
+  }
+  .teacher-meta{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+  .teacher-name{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
+  .teacher-role{ font-size:10.5px; color:var(--slate); }
+  .link-btn{
+    background:none; border:none; color:var(--moss); font-size:12px; font-weight:700;
+    text-decoration:underline; text-underline-offset:2px; padding:0; flex-shrink:0;
+  }
+
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
+  .seat-dot.sm{ width:6px; height:6px; }
+  .seat-dots.compact{ max-width:100%; gap:3px; }
   .seat-dot.filled{ background: var(--dot-color, var(--moss)); }
-  .seat-text{ font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--ink-soft); white-space:nowrap; letter-spacing:0.2px; }
-  .seat-text.full{ color:var(--brick); }
-  .seat-text.low{ color:var(--amber); }
 
   .card-actions{ display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
   .card-actions .btn{ flex:1; text-align:center; }
+
 
   .roster-toggle{
     font-size:12.5px; font-weight:700; color:var(--slate); background:none; border:none;
@@ -286,7 +322,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div>
+    <div class="header-top">
       <div class="brand">
         <span class="brand-mark" id="brandMark">C</span>
         <span class="brand-name" id="brandTitle">ClassBoard</span>
@@ -450,18 +486,18 @@ function seatMeta(course){
   else if(remaining / cap <= 0.3) status = 'low';
   return {enrolled, cap, remaining: Math.max(0,remaining), status};
 }
-function seatDotsHtml(meta){
+function seatDotsHtml(meta, compact){
   const colorVar = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
   if(meta.cap > 30){
     const pct = Math.min(100, Math.round((meta.enrolled/meta.cap)*100));
-    return `<div style="width:120px;height:8px;border-radius:5px;background:var(--line);overflow:hidden;">
+    return `<div style="width:${compact?'100%':'120px'};height:${compact?'5px':'8px'};border-radius:5px;background:var(--line);overflow:hidden;">
       <div style="width:${pct}%;height:100%;background:${colorVar};"></div></div>`;
   }
   let dots = '';
   for(let i=0;i<meta.cap;i++){
-    dots += `<span class="seat-dot ${i<meta.enrolled?'filled':''}" style="--dot-color:${colorVar}"></span>`;
+    dots += `<span class="seat-dot ${compact?'sm':''} ${i<meta.enrolled?'filled':''}" style="--dot-color:${colorVar}"></span>`;
   }
-  return `<div class="seat-dots">${dots}</div>`;
+  return `<div class="seat-dots ${compact?'compact':''}">${dots}</div>`;
 }
 
 function courseCardHtml(course){
@@ -505,24 +541,46 @@ function courseCardHtml(course){
       <button class="btn btn-danger btn-sm" onclick="deleteCourse('${course.id}')">删除</button>
   ` : '';
 
+  const teacherInitial = teacher && teacher.name ? teacher.name.trim().charAt(0).toUpperCase() : '?';
+  const seatValueClass = meta.status==='full' ? 'seat-full' : meta.status==='low' ? 'seat-low' : '';
+
   return `
   <div class="card" style="--card-accent:${accentColor}">
-    <div class="badges">
-      <span class="badge time">🕐 ${course.date? formatDateLabel(course.date)+' · ':''}${formatTimeRange(course.startTime, course.endTime) || '时间待定'}</span>
-      <span class="badge grade">🎓 ${course.grade? escapeHtml(course.grade) : '年级未设置'}</span>
-    </div>
     <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
-    <p class="teacher-line">👤 <b>${teacher? escapeHtml(teacher.name) : '未指定老师'}</b>
-      ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')">简介</button>` : ''}
-    </p>
-    <div class="desc-wrap">
-      <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
-      ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <span class="info-label">🕐 上课时间</span>
+        <span class="info-value">${course.date? formatDateLabel(course.date) : '日期待定'}</span>
+        <span class="info-value info-value-sub">${formatTimeRange(course.startTime, course.endTime) || '时间待定'}</span>
+      </div>
+      <div class="info-cell">
+        <span class="info-label">🎓 适合年级</span>
+        <span class="info-value">${course.grade? escapeHtml(course.grade) : '年级未设置'}</span>
+      </div>
+      <div class="info-cell">
+        <span class="info-label">👥 剩余名额</span>
+        <span class="info-value ${seatValueClass}">${meta.status==='full' ? '已满' : `${meta.remaining} / ${meta.cap}`}</span>
+        ${seatDotsHtml(meta, true)}
+      </div>
     </div>
-    <div class="seats-row">
-      ${seatDotsHtml(meta)}
-      <span class="seat-text ${meta.status}">${meta.status==='full' ? '名额已满' : `剩余 ${meta.remaining} / ${meta.cap}`}</span>
+
+    <div class="desc-block">
+      <div class="desc-wrap">
+        <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
+        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
+      </div>
     </div>
+
+    <div class="teacher-block">
+      <span class="teacher-avatar">${teacherInitial}</span>
+      <div class="teacher-meta">
+        <span class="teacher-name">${teacher? escapeHtml(teacher.name) : '未指定老师'}</span>
+        <span class="teacher-role">授课老师</span>
+      </div>
+      ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')">简介 ›</button>` : ''}
+    </div>
+
     <button class="roster-toggle" onclick="toggleRoster('${course.id}')">${rosterOpen?'收起':'查看'}报名名单（${enrolledList.length}人） ${rosterOpen?'▲':'▼'}</button>
     <div class="roster ${rosterOpen?'open':''}" id="roster-${course.id}">${rosterRows}</div>
     <div class="card-actions">${actionBtn}${adminBtns}</div>
