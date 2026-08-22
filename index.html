@@ -88,6 +88,14 @@
   .brand-sub{ font-size:14px; color:var(--slate); font-weight:500; }
   .tagline{ margin: 6px 0 26px; color:var(--slate); font-size:14px; }
 
+  .fee-notice{
+    background:var(--amber-tint); border:1px solid var(--amber); border-radius:12px;
+    padding:12px 16px; margin-bottom:22px; display:flex; flex-direction:column; gap:4px;
+  }
+  .fee-notice-label{ font-weight:800; font-size:13px; color:#8a611f; }
+  .fee-notice-text{ font-size:13.5px; color:#6b4c17; white-space:pre-wrap; line-height:1.6; }
+  .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
+
   .header-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .btn{
     border:1.5px solid var(--ink); background:var(--card); color:var(--ink);
@@ -256,7 +264,7 @@
     </div>
     <div class="header-actions" id="headerActions"></div>
   </header>
-  <p class="tagline">发布课程 · 家长报名 · 收款跟踪 — 一个链接搞定，不用下载 App，不用注册账号。</p>
+  <div id="feeNoticeBox" style="display:none;"></div>
 
   <div id="boardArea"></div>
 </div>
@@ -266,7 +274,7 @@
 
 <script>
 const ADMIN_PASSWORD = "1234";
-const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard" }, loaded:false };
+const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard", feeNotice: "" }, loaded:false };
 let isAdmin = false;
 let openRosters = {}; 
 
@@ -280,15 +288,16 @@ function initFirebaseSync(){
       state.courses = data.courses || [];
       state.teachers = data.teachers || [];
       state.signups = data.signups || [];
-      state.settings = data.settings || { orgName: "ClassBoard" };
+      state.settings = data.settings || { orgName: "ClassBoard", feeNotice: "" };
     } else {
       state.courses = [];
       state.teachers = [];
       state.signups = [];
-      state.settings = { orgName: "ClassBoard" };
+      state.settings = { orgName: "ClassBoard", feeNotice: "" };
     }
     state.loaded = true;
     renderBrand();
+    renderFeeNotice();
     renderBoard();
     renderHeaderActions();
   }, (error) => {
@@ -364,6 +373,21 @@ function renderBrand(){
   document.getElementById('brandMark').textContent = org.charAt(0).toUpperCase();
   document.title = `${org} · 课程板`;
 }
+function renderFeeNotice(){
+  const el = document.getElementById('feeNoticeBox');
+  if(!el) return;
+  const fee = (state.settings && state.settings.feeNotice) || '';
+  if(fee){
+    el.style.display = 'block';
+    el.innerHTML = `<div class="fee-notice"><span class="fee-notice-label">💰 收费标准</span><div class="fee-notice-text">${escapeHtml(fee)}</div></div>`;
+  }else if(isAdmin){
+    el.style.display = 'block';
+    el.innerHTML = `<div class="fee-notice fee-notice-empty">还没有设置收费标准，点右上角「机构设置」填写</div>`;
+  }else{
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
+}
 
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
@@ -419,11 +443,17 @@ function courseCardHtml(course){
     rosterRows = enrolledList.map(s=>{
       if(isAdmin){
         return `<div class="roster-row">
-          <span style="display:flex;align-items:center;gap:6px;flex:1;">
-            <input type="text" class="roster-name-input" value="${escapeHtml(s.studentName)}" onchange="updateStudentName('${s.id}', this.value)" title="点击可修改姓名">
-            <span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span>
+          <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+            <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <input type="text" class="roster-name-input" value="${escapeHtml(s.studentName)}" onchange="updateStudentName('${s.id}', this.value)" title="点击可修改姓名">
+              <span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span>
+            </span>
+            <input type="text" class="roster-name-input" style="width:100%;font-weight:400;color:var(--slate);" placeholder="备注家长微信名（选填）" value="${escapeHtml(s.wechatName||'')}" onchange="updateWechatName('${s.id}', this.value)">
           </span>
-          <button class="pay-btn ${s.paid?'paid':'unpaid'}" onclick="togglePaid('${s.id}')">${s.paid?'已收款':'待收款'}</button>
+          <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <button class="pay-btn ${s.paid?'paid':'unpaid'}" onclick="togglePaid('${s.id}')">${s.paid?'已收款':'待收款'}</button>
+            <button class="pay-btn" style="border-color:var(--brick);color:var(--brick);" onclick="deleteSignup('${s.id}')" title="删除这条报名">✕</button>
+          </span>
         </div>`;
       }
       return `<div class="roster-row"><span class="roster-name">${escapeHtml(s.studentName)}</span></div>`;
@@ -514,6 +544,24 @@ async function updateStudentName(signupId, newName){
   if(ok) toast('学生姓名已更新');
 }
 
+async function updateWechatName(signupId, newVal){
+  const s = state.signups.find(x=>x.id===signupId);
+  if(!s) return;
+  s.wechatName = newVal.trim();
+  const ok = await syncToCloud();
+  if(ok) toast('家长微信备注已更新');
+}
+
+async function deleteSignup(signupId){
+  const s = state.signups.find(x=>x.id===signupId);
+  if(!s) return;
+  if(!confirm(`确定要删除「${s.studentName}」的这条报名记录吗？删除后该学生会腾出一个名额。`)) return;
+  state.signups = state.signups.filter(x=>x.id!==signupId);
+  renderBoard();
+  const ok = await syncToCloud();
+  if(ok) toast('已删除该条报名');
+}
+
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 function openModal(inner){
   document.getElementById('modalRoot').innerHTML = `
@@ -549,6 +597,7 @@ function submitPassword(){
     isAdmin = true;
     closeModal();
     renderHeaderActions();
+    renderFeeNotice();
     renderBoard();
     toast('已解锁机构管理');
   }else{
@@ -558,6 +607,7 @@ function submitPassword(){
 function exitAdmin(){
   isAdmin = false;
   renderHeaderActions();
+  renderFeeNotice();
   renderBoard();
   toast('已退出管理模式');
 }
@@ -565,10 +615,15 @@ function exitAdmin(){
 function openOrgSettings(){
   openModal(`
     <h2>机构设置</h2>
-    <p class="sub">修改网页上显示的机构名称，全网实时生效</p>
+    <p class="sub">修改网页上显示的机构名称与收费标准，全网实时生效</p>
     <div class="field">
       <label for="orgNameInput">机构名称</label>
       <input type="text" id="orgNameInput" value="${escapeHtml(state.settings.orgName || 'ClassBoard')}" placeholder="例如：卓越教育工作室">
+    </div>
+    <div class="field">
+      <label for="feeNoticeInput">收费标准</label>
+      <textarea id="feeNoticeInput" placeholder="例如：单次课 150 元，10 次课包 1300 元，报名后请添加老师微信付款">${escapeHtml(state.settings.feeNotice || '')}</textarea>
+      <div class="field-hint">会显示在课程列表上方，家长报名前就能看到</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
@@ -578,12 +633,15 @@ function openOrgSettings(){
 }
 async function saveOrgSettings(){
   const name = document.getElementById('orgNameInput').value.trim();
+  const fee = document.getElementById('feeNoticeInput').value.trim();
   if(!name){ toast('机构名称不能为空', true); return; }
   state.settings.orgName = name;
+  state.settings.feeNotice = fee;
   renderBrand();
+  renderFeeNotice();
   closeModal();
   const ok = await syncToCloud();
-  if(ok) toast('机构名称已更新');
+  if(ok) toast('机构信息已更新');
 }
 
 function showTeacherBio(teacherId){
@@ -612,6 +670,10 @@ function openSignupForm(courseId){
       <input type="text" id="suPhone" maxlength="4" inputmode="numeric" placeholder="用于核对身份和收款">
       <div class="field-hint">仅用于机构核对身份，不会展示给其他家长</div>
     </div>
+    <div class="field">
+      <label for="suWechat">家长微信名（选填）</label>
+      <input type="text" id="suWechat" placeholder="方便机构联系，可以不填">
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
       <button class="btn btn-primary" onclick="submitSignup('${courseId}')">提交报名</button>
@@ -621,6 +683,7 @@ function openSignupForm(courseId){
 async function submitSignup(courseId){
   const name = document.getElementById('suName').value.trim();
   const phone = document.getElementById('suPhone').value.trim();
+  const wechatName = document.getElementById('suWechat').value.trim();
   if(!name){ toast('请填写孩子姓名', true); return; }
   if(!/^\d{4}$/.test(phone)){ toast('请输入手机号后四位数字', true); return; }
 
@@ -632,7 +695,7 @@ async function submitSignup(courseId){
     closeModal();
     return;
   }
-  state.signups.push({ id: uid(), courseId, studentName:name, phoneLast4:phone, paid:false, ts: Date.now() });
+  state.signups.push({ id: uid(), courseId, studentName:name, phoneLast4:phone, wechatName, paid:false, ts: Date.now() });
   closeModal();
   openRosters[courseId] = true;
   renderBoard();
@@ -820,14 +883,14 @@ function exportExcel(){
 
   const teacherName = id => (state.teachers.find(t=>t.id===id)||{}).name || '未指定';
 
-  const detail = [['课程名称','上课日期','上课时间','学生姓名','家长手机尾号','付款状态','报名时间']];
+  const detail = [['课程名称','上课日期','上课时间','学生姓名','家长手机尾号','家长微信名','付款状态','报名时间']];
   state.signups.forEach(s=>{
     const c = state.courses.find(c=>c.id===s.courseId);
     detail.push([
       c? c.name : '（课程已删除）',
       c? c.date : '',
       c? formatTimeRange(c.startTime, c.endTime) : '',
-      s.studentName, s.phoneLast4, s.paid?'已收款':'待收款',
+      s.studentName, s.phoneLast4, s.wechatName||'', s.paid?'已收款':'待收款',
       new Date(s.ts).toLocaleString('zh-CN')
     ]);
   });
@@ -858,6 +921,14 @@ function exportExcel(){
   XLSX.writeFile(wb, `${state.settings.orgName || 'ClassBoard'}_报表_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel 导出成功');
 }
+
+/* 页面一打开就先画出"机构管理"按钮和基础界面，不等云端数据返回，
+   避免网络慢或 Firebase 连接延迟时右上角一片空白 */
+renderHeaderActions();
+renderBrand();
+renderFeeNotice();
+renderBoard();
+
 </script>
 </body>
 </html>
