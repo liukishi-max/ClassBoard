@@ -13,25 +13,24 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  // ================= 请把这里换成你的 Firebase 配置 =================
+  // ================= 请在此处保留你的 Firebase 配置 =================
   const firebaseConfig = {
-    apiKey: "你的apiKey",
+    apiKey: "AIzaSyCbzPLDc_9rcBsB8wOkcWCESnk07SSFiuA",
     authDomain: "classboard-682cd.firebaseapp.com",
     projectId: "classboard-682cd",
-    storageBucket: "classboard-682cd.appspot.com",
+    storageBucket: "classboard-682cd.firebasestorage.app",
     messagingSenderId: "96309189331",
-    appId: "你的appId"
+    appId: "1:96309189331:web:60fad53c23fd7c024a5226",
+    measurementId: "G-X7V00CX2V"
   };
   // ===============================================================
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // 挂载到全局，供下方业务逻辑调用
   window.firebaseDb = db;
   window.FirebaseSdk = { doc, setDoc, onSnapshot };
 
-  // 启动数据加载与实时监听
   initFirebaseSync();
 </script>
 
@@ -74,7 +73,6 @@
 
   .wrap{ max-width: 1080px; margin: 0 auto; padding: 20px 20px 80px; }
 
-  /* ---------- Header ---------- */
   header{
     display:flex; align-items:flex-start; justify-content:space-between;
     gap:16px; flex-wrap:wrap; padding-top: 8px;
@@ -114,7 +112,6 @@
   }
   .admin-pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--moss); display:inline-block; }
 
-  /* ---------- Date sections ---------- */
   .date-divider{
     display:flex; align-items:center; gap:12px; margin: 34px 0 16px;
   }
@@ -133,7 +130,6 @@
 
   .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; }
 
-  /* ---------- Course card ---------- */
   .card{
     background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
     border:1px solid var(--line); padding:18px; display:flex; flex-direction:column; gap:10px;
@@ -182,25 +178,25 @@
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
     display:flex; align-items:center; justify-content:space-between; font-size:13px;
-    background:var(--paper); border-radius:8px; padding:6px 9px;
+    background:var(--paper); border-radius:8px; padding:6px 9px; gap:8px;
   }
   .roster-name{ font-weight:600; }
-  .roster-phone{ font-family:'IBM Plex Mono', monospace; color:var(--slate); font-size:11.5px; margin-left:6px; }
+  .roster-name-input{
+    border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13px; font-weight:600;
+    font-family:inherit; background:#fff; width:110px;
+  }
+  .roster-phone{ font-family:'IBM Plex Mono', monospace; color:var(--slate); font-size:11.5px; }
   .pay-btn{
     font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; border:1.5px solid var(--line);
-    background:#fff; color:var(--slate);
+    background:#fff; color:var(--slate); flex-shrink:0;
   }
   .pay-btn.paid{ border-color:var(--moss); background:var(--moss-tint); color:var(--moss-dark); }
   .pay-btn.unpaid{ border-color:var(--amber); background:var(--amber-tint); color:#8a611f; }
 
-  /* ---------- Empty state ---------- */
-  .empty-state{
-    text-align:center; padding: 70px 20px; color:var(--slate);
-  }
+  .empty-state{ text-align:center; padding: 70px 20px; color:var(--slate); }
   .empty-state .glyph{ font-size:34px; margin-bottom:10px; }
   .empty-state h3{ font-family:'Noto Serif SC',serif; color:var(--ink); margin:0 0 6px; }
 
-  /* ---------- Modal ---------- */
   .overlay{
     position:fixed; inset:0; background:rgba(31,42,36,0.45); backdrop-filter: blur(2px);
     display:flex; align-items:center; justify-content:center; padding:20px; z-index:100;
@@ -208,6 +204,7 @@
   .modal{
     background:#fff; border-radius:18px; max-width:480px; width:100%;
     max-height:88vh; overflow-y:auto; padding:26px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    position:relative;
   }
   .modal h2{ font-family:'Noto Serif SC', serif; margin:0 0 4px; font-size:21px; }
   .modal .sub{ color:var(--slate); font-size:13px; margin: 0 0 18px; }
@@ -226,12 +223,10 @@
   .modal-close{
     position:absolute; top:16px; right:16px; background:none; border:none; font-size:20px; color:var(--slate);
   }
-  .modal{ position:relative; }
   .teacher-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
   .teacher-item{ background:var(--paper); border-radius:10px; padding:10px 12px; }
   .teacher-item-name{ font-weight:700; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
 
-  /* ---------- Toast ---------- */
   #toast{
     position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 20px; border-radius:999px; font-size:13.5px;
@@ -247,10 +242,6 @@
     .card-actions{ flex-direction:column; }
     .card-actions .btn{ width:100%; }
   }
-
-  @media (prefers-reduced-motion: reduce){
-    *{ transition:none !important; animation:none !important; }
-  }
 </style>
 </head>
 <body>
@@ -258,8 +249,8 @@
   <header>
     <div>
       <div class="brand">
-        <span class="brand-mark">C</span>
-        <span class="brand-name">ClassBoard</span>
+        <span class="brand-mark" id="brandMark">C</span>
+        <span class="brand-name" id="brandTitle">ClassBoard</span>
         <span class="brand-sub">课程板</span>
       </div>
     </div>
@@ -274,30 +265,30 @@
 <div id="toast"></div>
 
 <script>
-/* ======================= 状态 ======================= */
 const ADMIN_PASSWORD = "1234";
-const state = { courses: [], teachers: [], signups: [], loaded:false };
+const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard" }, loaded:false };
 let isAdmin = false;
 let openRosters = {}; 
 
-/* ======================= Firebase 同步层 ======================= */
 function initFirebaseSync(){
   const db = window.firebaseDb;
   const { doc, onSnapshot } = window.FirebaseSdk;
 
-  // 实时监听云端数据，多端秒级同步
   onSnapshot(doc(db, "classboard", "main_data"), (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data();
       state.courses = data.courses || [];
       state.teachers = data.teachers || [];
       state.signups = data.signups || [];
+      state.settings = data.settings || { orgName: "ClassBoard" };
     } else {
       state.courses = [];
       state.teachers = [];
       state.signups = [];
+      state.settings = { orgName: "ClassBoard" };
     }
     state.loaded = true;
+    renderBrand();
     renderBoard();
     renderHeaderActions();
   }, (error) => {
@@ -313,7 +304,8 @@ async function syncToCloud(){
     await setDoc(doc(db, "classboard", "main_data"), {
       courses: state.courses,
       teachers: state.teachers,
-      signups: state.signups
+      signups: state.signups,
+      settings: state.settings
     });
     return true;
   } catch(e) {
@@ -323,11 +315,11 @@ async function syncToCloud(){
   }
 }
 
-/* ======================= 工具函数 ======================= */
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
 function parseTime12(t){
   if(!t) return null;
   const m = String(t).trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -366,7 +358,13 @@ function enrolledOf(courseId){
   return state.signups.filter(s=>s.courseId===courseId);
 }
 
-/* ======================= 渲染：头部操作区 ======================= */
+function renderBrand(){
+  const org = state.settings.orgName || "ClassBoard";
+  document.getElementById('brandTitle').textContent = org;
+  document.getElementById('brandMark').textContent = org.charAt(0).toUpperCase();
+  document.title = `${org} · 课程板`;
+}
+
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
   if(!el) return;
@@ -374,6 +372,7 @@ function renderHeaderActions(){
     el.innerHTML = `
       <span class="admin-pill"><span class="dot"></span>机构管理模式</span>
       <button class="btn btn-primary btn-sm" onclick="openCourseForm()">＋ 发布课程</button>
+      <button class="btn btn-ghost btn-sm" onclick="openOrgSettings()">机构设置</button>
       <button class="btn btn-ghost btn-sm" onclick="openTeacherManage()">老师管理</button>
       <button class="btn btn-ghost btn-sm" onclick="exportExcel()">导出 Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="exitAdmin()">退出管理</button>
@@ -383,7 +382,6 @@ function renderHeaderActions(){
   }
 }
 
-/* ======================= 渲染：课程板 ======================= */
 function seatMeta(course){
   const enrolled = enrolledOf(course.id).length;
   const cap = Math.max(1, Number(course.capacity)||1);
@@ -406,6 +404,7 @@ function seatDotsHtml(meta){
   }
   return `<div class="seat-dots">${dots}</div>`;
 }
+
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
@@ -420,7 +419,10 @@ function courseCardHtml(course){
     rosterRows = enrolledList.map(s=>{
       if(isAdmin){
         return `<div class="roster-row">
-          <span><span class="roster-name">${escapeHtml(s.studentName)}</span><span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span></span>
+          <span style="display:flex;align-items:center;gap:6px;flex:1;">
+            <input type="text" class="roster-name-input" value="${escapeHtml(s.studentName)}" onchange="updateStudentName('${s.id}', this.value)" title="点击可修改姓名">
+            <span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span>
+          </span>
           <button class="pay-btn ${s.paid?'paid':'unpaid'}" onclick="togglePaid('${s.id}')">${s.paid?'已收款':'待收款'}</button>
         </div>`;
       }
@@ -502,7 +504,16 @@ async function togglePaid(signupId){
   if(ok) toast(s.paid? '已标记为已收款' : '已标记为待收款');
 }
 
-/* ======================= 弹窗基础 ======================= */
+async function updateStudentName(signupId, newName){
+  const name = newName.trim();
+  if(!name) { toast('姓名不能为空', true); renderBoard(); return; }
+  const s = state.signups.find(x=>x.id===signupId);
+  if(!s) return;
+  s.studentName = name;
+  const ok = await syncToCloud();
+  if(ok) toast('学生姓名已更新');
+}
+
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 function openModal(inner){
   document.getElementById('modalRoot').innerHTML = `
@@ -514,11 +525,10 @@ function openModal(inner){
     </div>`;
 }
 
-/* ======================= 管理员登录 ======================= */
 function openPasswordModal(){
   openModal(`
     <h2>机构管理</h2>
-    <p class="sub">输入管理密码以解锁课程发布、收款跟踪与数据导出</p>
+    <p class="sub">输入管理密码以解锁机构设置、课程发布与收款跟踪</p>
     <div class="field">
       <label for="pwInput">管理密码</label>
       <input type="password" id="pwInput" placeholder="请输入密码" autofocus>
@@ -552,7 +562,30 @@ function exitAdmin(){
   toast('已退出管理模式');
 }
 
-/* ======================= 老师简介弹窗 ======================= */
+function openOrgSettings(){
+  openModal(`
+    <h2>机构设置</h2>
+    <p class="sub">修改网页上显示的机构名称，全网实时生效</p>
+    <div class="field">
+      <label for="orgNameInput">机构名称</label>
+      <input type="text" id="orgNameInput" value="${escapeHtml(state.settings.orgName || 'ClassBoard')}" placeholder="例如：卓越教育工作室">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveOrgSettings()">保存修改</button>
+    </div>
+  `);
+}
+async function saveOrgSettings(){
+  const name = document.getElementById('orgNameInput').value.trim();
+  if(!name){ toast('机构名称不能为空', true); return; }
+  state.settings.orgName = name;
+  renderBrand();
+  closeModal();
+  const ok = await syncToCloud();
+  if(ok) toast('机构名称已更新');
+}
+
 function showTeacherBio(teacherId){
   const t = state.teachers.find(x=>x.id===teacherId);
   if(!t) return;
@@ -564,7 +597,6 @@ function showTeacherBio(teacherId){
   `);
 }
 
-/* ======================= 家长报名 ======================= */
 function openSignupForm(courseId){
   const course = state.courses.find(c=>c.id===courseId);
   if(!course) return;
@@ -608,7 +640,6 @@ async function submitSignup(courseId){
   if(ok) toast('报名成功！可在课程卡片下方查看名单');
 }
 
-/* ======================= 机构：课程表单 ======================= */
 function timeSelectHtml(idPrefix, currentValue){
   const parts = (currentValue||'').match(/^(\d{1,2}):(\d{2})$/);
   const curH = parts ? parts[1].padStart(2,'0') : '';
@@ -727,7 +758,6 @@ async function deleteCourse(courseId){
   toast('课程已删除');
 }
 
-/* ======================= 机构：老师管理 ======================= */
 function openTeacherManage(){
   renderTeacherManageModal();
 }
@@ -784,7 +814,6 @@ async function deleteTeacher(teacherId){
   toast('老师已删除');
 }
 
-/* ======================= 机构：导出 Excel ======================= */
 function exportExcel(){
   if(typeof XLSX === 'undefined'){ toast('导出组件加载失败，请检查网络', true); return; }
   if(state.courses.length===0){ toast('还没有课程数据可导出', true); return; }
@@ -826,7 +855,7 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), "报名明细");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "课程概览");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tRows), "老师统计");
-  XLSX.writeFile(wb, `ClassBoard_报表_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `${state.settings.orgName || 'ClassBoard'}_报表_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel 导出成功');
 }
 </script>
