@@ -520,10 +520,7 @@ function renderHeaderActions(){
       <button class="btn btn-ghost btn-sm" onclick="exitAdmin()">退出管理</button>
     `;
   }else{
-    el.innerHTML = `
-      <button class="btn btn-primary btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
-      <button class="btn btn-sm" onclick="openPasswordModal()">机构管理</button>
-    `;
+    el.innerHTML = `<button class="btn btn-sm" onclick="openPasswordModal()">机构管理</button>`;
   }
 }
 
