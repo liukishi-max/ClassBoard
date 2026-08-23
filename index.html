@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 
 <!-- 引入 Firebase 模块 SDK -->
@@ -512,13 +513,17 @@ function renderHeaderActions(){
     el.innerHTML = `
       <span class="admin-pill"><span class="dot"></span>机构管理模式</span>
       <button class="btn btn-primary btn-sm" onclick="openCourseForm()">＋ 发布课程</button>
+      <button class="btn btn-primary btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
       <button class="btn btn-ghost btn-sm" onclick="openOrgSettings()">机构设置</button>
       <button class="btn btn-ghost btn-sm" onclick="openTeacherManage()">老师管理</button>
       <button class="btn btn-ghost btn-sm" onclick="exportExcel()">导出 Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="exitAdmin()">退出管理</button>
     `;
   }else{
-    el.innerHTML = `<button class="btn btn-sm" onclick="openPasswordModal()">机构管理</button>`;
+    el.innerHTML = `
+      <button class="btn btn-primary btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
+      <button class="btn btn-sm" onclick="openPasswordModal()">机构管理</button>
+    `;
   }
 }
 
@@ -1091,6 +1096,270 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tRows), "老师统计");
   XLSX.writeFile(wb, `${state.settings.orgName || 'ClassBoard'}_报表_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel 导出成功');
+}
+
+/* ========================================================================
+   分享海报：把课程信息 + 报名二维码画成一张图，供长按保存后直接当图片发到微信群/朋友圈。
+
+   为什么要这么做：微信只有「认证服务号」通过 JS-SDK（wx.updateAppMessageShareData）
+   才能自定义转发链接时显示的标题/描述/图片；个人开发、没有认证公众号的网页，
+   不管 <meta og:image> 怎么写，微信转发出去大概率还是显示成一个丑的默认链接图标。
+   这是微信平台层面的限制，前端代码无法绕过。
+   折中方案：生成一张真正的图片（canvas 绘制），图片消息在微信里天然就是大图展示，
+   没有链接卡片的问题，很多培训机构的招生海报就是这样发的。
+   ======================================================================== */
+
+function openPosterModal(){
+  openModal(`
+    <h2>生成分享海报</h2>
+    <p class="sub">生成后长按图片保存到手机相册，再发到微信群或朋友圈——图片比链接更抓眼球，家长扫码就能直接报名</p>
+    <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
+      <div style="color:var(--slate);font-size:13px;">正在生成海报…</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+      <a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.png">下载海报</a>
+    </div>
+  `);
+  setTimeout(generatePosterImage, 30);
+}
+
+async function generatePosterImage(){
+  const box = document.getElementById('posterPreviewBox');
+  if(!box) return;
+  try{
+    if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
+    const canvas = await drawPosterCanvas();
+    const dataUrl = canvas.toDataURL('image/png');
+    box.innerHTML = `
+      <img src="${dataUrl}" alt="报名海报" style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;">
+      <div style="font-size:12.5px;color:#8a611f;font-weight:700;">👆 长按图片保存到相册，即可发送到微信</div>
+    `;
+    const dl = document.getElementById('posterDownloadBtn');
+    if(dl){ dl.href = dataUrl; dl.style.display = 'inline-flex'; }
+  }catch(err){
+    box.innerHTML = `<div style="color:var(--brick);font-size:13px;">海报生成失败：${escapeHtml(String(err && err.message || err))}</div>`;
+  }
+}
+
+/* 用「先量后画」两遍：第一遍只用来计算总高度（不落笔），第二遍在真正尺寸的画布上绘制，
+   这样无论课程有几条，海报高度都刚好，不会留白或被裁掉 */
+function drawPosterCanvas(){
+  return new Promise((resolve, reject)=>{
+    try{
+      const W = 750;
+      const measureCanvas = document.createElement('canvas');
+      const mctx = measureCanvas.getContext('2d');
+      const finalH = layoutPoster(mctx, W, false);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = finalH;
+      const ctx = canvas.getContext('2d');
+      layoutPoster(ctx, W, true);
+
+      renderQrOntoCanvas(ctx, canvas, W, finalH, resolve, reject);
+    }catch(e){ reject(e); }
+  });
+}
+
+/* draw=false 时只计算高度，draw=true 时才真正 fill/stroke/fillText。
+   返回值：整张海报最终应有的高度（二维码区域预留在 layoutPoster 之外，由 renderQrOntoCanvas 补上文字） */
+function layoutPoster(ctx, W, draw){
+  let y = 0;
+  const pad = 40;
+
+  // 顶部色带
+  const headerH = 168;
+  if(draw){
+    const grad = ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,'#3F6B52'); grad.addColorStop(1,'#2C4C3B');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,W,headerH);
+
+    const org = state.settings.orgName || 'ClassBoard';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 40px "Noto Serif SC", serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(truncateText(ctx, org, W-2*pad), pad, 92);
+    ctx.font = '500 20px "Noto Sans SC", sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.fillText('课程报名', pad, 128);
+  }else{
+    ctx.font = '700 40px "Noto Serif SC", serif';
+  }
+  y = headerH + 34;
+
+  // 收费说明
+  const fee = (state.settings.feeNotice || '').trim();
+  if(fee){
+    const boxH = 118;
+    if(draw){
+      ctx.fillStyle = '#FBF1DF';
+      roundRect(ctx, pad, y, W-2*pad, boxH, 12); ctx.fill();
+      ctx.strokeStyle = '#C98A2C'; ctx.lineWidth = 2;
+      roundRect(ctx, pad, y, W-2*pad, boxH, 12); ctx.stroke();
+      ctx.fillStyle = '#8a611f';
+      ctx.font = '700 20px "Noto Sans SC", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('💰 收费标准', pad+18, y+32);
+      ctx.fillStyle = '#6b4c17';
+      ctx.font = '400 18px "Noto Sans SC", sans-serif';
+      wrapText(ctx, fee, pad+18, y+62, W-2*pad-36, 27, 2);
+    }
+    y += boxH + 24;
+  }
+
+  // 课程卡片（最多 4 条，按日期排序）
+  const list = [...state.courses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,4);
+  if(list.length===0){
+    if(draw){
+      ctx.fillStyle = '#5B6B63';
+      ctx.font = '400 20px "Noto Sans SC", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('暂无课程，请先发布课程', pad, y+30);
+    }
+    y += 60;
+  }else{
+    const cardH = 116, gap = 16;
+    list.forEach(course=>{
+      const meta = seatMeta(course);
+      const accent = meta.status==='full' ? '#A9463D' : meta.status==='low' ? '#C98A2C' : '#3F6B52';
+      if(draw){
+        ctx.fillStyle = '#FFFFFF';
+        roundRect(ctx, pad, y, W-2*pad, cardH, 12); ctx.fill();
+        ctx.strokeStyle = '#DCD5C0'; ctx.lineWidth = 1.5;
+        roundRect(ctx, pad, y, W-2*pad, cardH, 12); ctx.stroke();
+        ctx.fillStyle = accent;
+        roundRect(ctx, pad, y, 6, cardH, 3); ctx.fill();
+
+        ctx.fillStyle = '#1F2A24';
+        ctx.font = '700 26px "Noto Serif SC", serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(truncateText(ctx, course.name||'未命名课程', W-2*pad-140), pad+24, y+40);
+
+        ctx.fillStyle = '#5B6B63';
+        ctx.font = '400 18px "Noto Sans SC", sans-serif';
+        const line = `${formatDateLabel(course.date)}  ${formatTimeRange(course.startTime, course.endTime)}`;
+        ctx.fillText(truncateText(ctx, line, W-2*pad-48), pad+24, y+72);
+
+        ctx.fillStyle = accent;
+        ctx.font = '700 18px "Noto Sans SC", sans-serif';
+        ctx.fillText(meta.status==='full' ? '名额已满' : `余 ${meta.remaining} 位`, pad+24, y+100);
+      }
+      y += cardH + gap;
+    });
+  }
+  y += 8;
+
+  // CTA 徽章
+  const ctaText = '长按下方二维码 · 立即扫码报名';
+  const ctaH = 56;
+  if(draw){
+    ctx.font = '700 24px "Noto Sans SC", sans-serif';
+    const ctaW = ctx.measureText(ctaText).width + 60;
+    ctx.fillStyle = '#3F6B52';
+    roundRect(ctx, (W-ctaW)/2, y, ctaW, ctaH, 28); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.fillText(ctaText, W/2, y+37);
+    ctx.textAlign = 'left';
+  }
+  y += ctaH + 28;
+
+  // 二维码区（这里只预留空间，图像由 renderQrOntoCanvas 补画）
+  const qrSize = 260, qrPad = 16;
+  if(draw){
+    const qrX = (W-qrSize)/2;
+    ctx.fillStyle = '#FFFFFF';
+    roundRect(ctx, qrX-qrPad, y-qrPad, qrSize+2*qrPad, qrSize+2*qrPad, 16); ctx.fill();
+    ctx.strokeStyle = '#DCD5C0'; ctx.lineWidth = 1.5;
+    roundRect(ctx, qrX-qrPad, y-qrPad, qrSize+2*qrPad, qrSize+2*qrPad, 16); ctx.stroke();
+  }
+  y += qrSize;
+
+  // 底部说明文字
+  const footerH = 56;
+  if(draw){
+    ctx.fillStyle = '#5B6B63';
+    ctx.font = '400 16px "Noto Sans SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('微信扫一扫 / 长按图片识别二维码，打开报名页面', W/2, y+40);
+    ctx.textAlign = 'left';
+  }
+  y += footerH;
+
+  return Math.ceil(y);
+}
+
+/* qrcodejs 是异步把二维码画进一个隐藏 div 里的（内部用 canvas 或 table），
+   所以要等它生成完，再把结果 drawImage 貼到海报画布对应位置上 */
+function renderQrOntoCanvas(ctx, canvas, W, H, resolve, reject){
+  try{
+    const qrSize = 260;
+    const qrPad = 16;
+    // 二维码的纵向位置需要和 layoutPoster 里预留的位置完全对应，这里重新走一遍布局（不绘制）来算出 y
+    const mctx = document.createElement('canvas').getContext('2d');
+    const yBeforeQr = layoutPoster(mctx, W, false) - (qrSize + 56); // 减去底部说明文字与二维码本身高度
+    const qrX = (W-qrSize)/2;
+    const qrY = yBeforeQr;
+
+    const qrHolder = document.createElement('div');
+    qrHolder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+    document.body.appendChild(qrHolder);
+    new QRCode(qrHolder, {
+      text: window.location.href,
+      width: qrSize, height: qrSize,
+      colorDark: '#1F2A24', colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    setTimeout(()=>{
+      try{
+        const qrCanvas = qrHolder.querySelector('canvas');
+        const qrImg = qrHolder.querySelector('img');
+        if(qrCanvas){ ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize); }
+        else if(qrImg){ ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize); }
+        document.body.removeChild(qrHolder);
+        resolve(canvas);
+      }catch(e){ reject(e); }
+    }, 150);
+  }catch(e){ reject(e); }
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+function truncateText(ctx, text, maxWidth){
+  text = String(text||'');
+  if(ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while(t.length>1 && ctx.measureText(t+'…').width>maxWidth){ t = t.slice(0,-1); }
+  return t + '…';
+}
+/* 按字符宽度自动换行（中文没有空格分词，逐字累加更靠谱），超过 maxLines 就在最后一行截断加省略号 */
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines){
+  text = String(text||'');
+  const chars = Array.from(text);
+  let line = '', lineCount = 0;
+  for(let i=0;i<chars.length;i++){
+    const test = line + chars[i];
+    if(ctx.measureText(test).width > maxWidth && line){
+      if(lineCount === maxLines-1){
+        ctx.fillText(truncateText(ctx, line + chars.slice(i).join(''), maxWidth), x, y + lineCount*lineHeight);
+        return;
+      }
+      ctx.fillText(line, x, y + lineCount*lineHeight);
+      lineCount++;
+      line = chars[i];
+    }else{
+      line = test;
+    }
+  }
+  if(line) ctx.fillText(line, x, y + lineCount*lineHeight);
 }
 
 /* 页面一打开就先画出"机构管理"按钮和基础界面，不等云端数据返回，
