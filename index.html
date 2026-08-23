@@ -1118,7 +1118,7 @@ function openPosterModal(){
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
-      <a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.png">下载海报</a>
+      <a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.jpg">下载海报</a>
     </div>
   `);
   setTimeout(generatePosterImage, 30);
@@ -1130,7 +1130,7 @@ async function generatePosterImage(){
   try{
     if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
     const canvas = await drawPosterCanvas();
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     box.innerHTML = `
       <img src="${dataUrl}" alt="报名海报" style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;">
       <div style="font-size:12.5px;color:#8a611f;font-weight:700;">👆 长按图片保存到相册，即可发送到微信</div>
@@ -1167,6 +1167,15 @@ function drawPosterCanvas(){
 function layoutPoster(ctx, W, draw){
   let y = 0;
   const pad = 40;
+
+  // 整张画布先铺一层不透明底色——之前没有这一步，空白区域是透明的，
+  // 之前用 PNG 还看不出问题，换成 JPG（不支持透明）之后空白会变黑，
+  // 而且部分微信客户端对带透明通道的 PNG 处理本来就不稳定，这很可能正是
+  // "转发后图片显示不出来"的根源
+  if(draw){
+    ctx.fillStyle = '#F7F4EC';
+    ctx.fillRect(0, 0, W, ctx.canvas.height);
+  }
 
   // 顶部色带
   const headerH = 168;
