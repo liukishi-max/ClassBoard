@@ -1109,16 +1109,21 @@ function exportExcel(){
    没有链接卡片的问题，很多培训机构的招生海报就是这样发的。
    ======================================================================== */
 
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
 function openPosterModal(){
+  const mobile = isMobileDevice();
   openModal(`
     <h2>生成分享海报</h2>
-    <p class="sub">生成后长按图片保存到手机相册，再发到微信群或朋友圈——图片比链接更抓眼球，家长扫码就能直接报名</p>
+    <p class="sub">${mobile ? '生成后长按图片选"保存图像"存到手机相册，再从相册发到微信群或朋友圈——图片比链接更抓眼球' : '生成后把图片拖拽进微信聊天窗口发送（不要用"发送文件"选它），比链接更抓眼球'}</p>
     <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
       <div style="color:var(--slate);font-size:13px;">正在生成海报…</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
-      <a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.jpg">下载海报</a>
+      ${mobile ? '' : '<a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.jpg">下载海报</a>'}
     </div>
   `);
   setTimeout(generatePosterImage, 30);
@@ -1127,13 +1132,18 @@ function openPosterModal(){
 async function generatePosterImage(){
   const box = document.getElementById('posterPreviewBox');
   if(!box) return;
+  const mobile = isMobileDevice();
   try{
     if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
     const canvas = await drawPosterCanvas();
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     box.innerHTML = `
-      <img src="${dataUrl}" alt="报名海报" style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;">
-      <div style="font-size:12.5px;color:#8a611f;font-weight:700;">👆 长按图片保存到相册，即可发送到微信</div>
+      <img src="${dataUrl}" alt="报名海报" style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
+      <div style="font-size:13.5px;color:#8a611f;font-weight:800;text-align:center;line-height:1.6;">
+        ${mobile
+          ? '👆 长按上方图片，选"保存图像"存到相册<br>再打开相册从相册里发送给微信好友/群'
+          : '👆 把上方图片拖拽进微信聊天窗口即可发送<br>（微信「发送文件」按钮选中的话会变成文件，不会是图片）'}
+      </div>
     `;
     const dl = document.getElementById('posterDownloadBtn');
     if(dl){ dl.href = dataUrl; dl.style.display = 'inline-flex'; }
