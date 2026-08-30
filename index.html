@@ -90,8 +90,15 @@
   header{
     display:flex; flex-direction:column; gap:12px; padding-top: 8px;
   }
-  .header-top{ display:flex; align-items:center; }
+  .header-top{ display:flex; align-items:center; justify-content:space-between; }
   .brand{ display:flex; align-items:baseline; gap:11px; }
+  .admin-entry-btn{
+    width:34px; height:34px; border-radius:50%; flex-shrink:0; cursor:pointer;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.25); color:var(--moss-dark);
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+    transition: background .15s ease, color .15s ease, transform .12s ease;
+  }
+  .admin-entry-btn:hover{ background:var(--moss); color:#fff; transform:translateY(-1px); }
   .brand-mark{
     display:inline-flex; align-items:center; justify-content:center;
     width:36px; height:36px; border-radius:10px;
@@ -345,6 +352,7 @@
         <span class="brand-name" id="brandTitle">ClassBoard</span>
         <span class="brand-sub">课程板</span>
       </div>
+      <div id="headerEntry"></div>
     </div>
     <div class="header-actions" id="headerActions"></div>
   </header>
@@ -359,7 +367,7 @@ const ADMIN_PASSWORD = "1234";
 // 从网址参数里读取机构标识，例如 ?org=katy —— 不同机构用不同的 org 参数，
 // 数据会各自独立存储，互不影响。没带参数时用 "main_data"，兼容之前已有的数据。
 const ORG_ID = (new URLSearchParams(window.location.search).get('org') || 'main_data').trim() || 'main_data';
-const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard" }, loaded:false };
+const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: { orgName: "ClassBoard" }, loaded:false };
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
@@ -382,6 +390,7 @@ function templateSeedData(){
       startTime: '09:00',
       endTime: '10:00',
       teacherId: teacherId,
+      feePlanId: 'seed-plan-default',
       capacity: 4,
       description: 'Ms. Erin 拥有10年以上少儿教育经验，擅长用引导式提问带动孩子独立思考，帮助建立数感与逻辑思维习惯。本次试课从生活情境切入，让孩子在轻松的氛围中体验数学的乐趣，欢迎家长陪同试听。'
     }],
@@ -390,6 +399,11 @@ function templateSeedData(){
       name: 'Ms. Erin',
       bio: '10年以上少儿数学与思维教学经验，擅长思维引导式教学，课堂氛围轻松有趣，深受学生和家长喜爱。',
       feeNotice: '单次试课 100 元，正式课 150 元/次，报名后请添加老师微信付款'
+    }],
+    feePlans: [{
+      id: 'seed-plan-default',
+      name: '标准收费',
+      text: '单次试课 100 元，正式课 150 元/次，报名后请添加老师微信付款'
     }],
     signups: [],
     settings: { orgName: "ClassBoard" }
@@ -406,12 +420,14 @@ function initFirebaseSync(){
       state.courses = data.courses || [];
       state.teachers = data.teachers || [];
       state.signups = data.signups || [];
+      state.feePlans = data.feePlans || [];
       state.settings = data.settings || { orgName: "ClassBoard" };
     } else {
       const seed = templateSeedData();
       state.courses = seed.courses;
       state.teachers = seed.teachers;
       state.signups = seed.signups;
+      state.feePlans = seed.feePlans;
       state.settings = seed.settings;
     }
     state.loaded = true;
@@ -433,6 +449,7 @@ async function syncToCloud(){
       courses: state.courses,
       teachers: state.teachers,
       signups: state.signups,
+      feePlans: state.feePlans,
       settings: state.settings
     });
     return true;
@@ -494,19 +511,23 @@ function renderBrand(){
 }
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
-  if(!el) return;
+  const entry = document.getElementById('headerEntry');
+  if(!el || !entry) return;
   if(isAdmin){
+    entry.innerHTML = '';
     el.innerHTML = `
       <span class="admin-pill"><span class="dot"></span>机构管理模式</span>
       <button class="btn btn-primary btn-sm" onclick="openCourseForm()">＋ 发布课程</button>
       <button class="btn btn-primary btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
       <button class="btn btn-ghost btn-sm" onclick="openOrgSettings()">机构设置</button>
       <button class="btn btn-ghost btn-sm" onclick="openTeacherManage()">老师管理</button>
+      <button class="btn btn-ghost btn-sm" onclick="openFeeManage()">收费方案</button>
       <button class="btn btn-ghost btn-sm" onclick="exportExcel()">导出 Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="exitAdmin()">退出管理</button>
     `;
   }else{
-    el.innerHTML = `<button class="btn btn-sm" onclick="openPasswordModal()">机构管理</button>`;
+    el.innerHTML = '';
+    entry.innerHTML = `<button class="admin-entry-btn" onclick="openPasswordModal()" title="机构管理">🔐</button>`;
   }
 }
 
@@ -536,7 +557,8 @@ function seatDotsHtml(meta, compact){
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
-  const teacherFee = (teacher && teacher.feeNotice || '').trim();
+  const feePlan = state.feePlans.find(p=>p.id===course.feePlanId);
+  const teacherFee = (feePlan && feePlan.text) ? feePlan.text.trim() : (teacher && teacher.feeNotice || '').trim();
   const accentColor = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
@@ -553,9 +575,9 @@ function courseCardHtml(course){
           <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
             <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <input type="text" class="roster-name-input" value="${escapeHtml(s.studentName)}" onchange="updateStudentName('${s.id}', this.value)" title="点击可修改姓名">
-              <span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span>
+              ${s.phoneLast4 ? `<span class="roster-phone">尾号${escapeHtml(s.phoneLast4)}</span>` : ''}
             </span>
-            <input type="text" class="roster-name-input" style="width:100%;font-weight:400;color:var(--slate);" placeholder="备注家长微信名（选填）" value="${escapeHtml(s.wechatName||'')}" onchange="updateWechatName('${s.id}', this.value)">
+            <input type="text" class="roster-name-input" style="width:100%;font-weight:600;color:var(--ink-soft);" placeholder="家长微信昵称" value="${escapeHtml(s.wechatName||'')}" onchange="updateWechatName('${s.id}', this.value)">
           </span>
           <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <button class="pay-btn ${s.paid?'paid':'unpaid'}" onclick="togglePaid('${s.id}')">${s.paid?'已收款':'待收款'}</button>
@@ -837,13 +859,13 @@ function openSignupForm(courseId){
       <input type="text" id="suName" placeholder="请输入孩子姓名">
     </div>
     <div class="field">
-      <label for="suPhone">家长手机号后四位</label>
-      <input type="text" id="suPhone" maxlength="4" inputmode="numeric" placeholder="用于核对身份和收款">
-      <div class="field-hint">仅用于机构核对身份，不会展示给其他家长</div>
+      <label for="suWechat">家长微信昵称</label>
+      <input type="text" id="suWechat" placeholder="请填写微信昵称，方便机构联系">
+      <div class="field-hint">机构主要通过微信联系家长，请务必填写真实昵称</div>
     </div>
     <div class="field">
-      <label for="suWechat">家长微信名（选填）</label>
-      <input type="text" id="suWechat" placeholder="方便机构联系，可以不填">
+      <label for="suPhone">家长手机号后四位（选填）</label>
+      <input type="text" id="suPhone" maxlength="4" inputmode="numeric" placeholder="用于核对收款，可以不填">
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
@@ -853,10 +875,11 @@ function openSignupForm(courseId){
 }
 async function submitSignup(courseId){
   const name = document.getElementById('suName').value.trim();
-  const phone = document.getElementById('suPhone').value.trim();
   const wechatName = document.getElementById('suWechat').value.trim();
+  const phone = document.getElementById('suPhone').value.trim();
   if(!name){ toast('请填写孩子姓名', true); return; }
-  if(!/^\d{4}$/.test(phone)){ toast('请输入手机号后四位数字', true); return; }
+  if(!wechatName){ toast('请填写家长微信昵称，方便机构联系', true); return; }
+  if(phone && !/^\d{4}$/.test(phone)){ toast('手机号后四位请输入4位数字', true); return; }
 
   const course = state.courses.find(c=>c.id===courseId);
   const meta = seatMeta(course);
@@ -903,6 +926,9 @@ function readTimeSelect(idPrefix){
 function teacherOptionsHtml(selectedId){
   return state.teachers.map(t=>`<option value="${t.id}" ${t.id===selectedId?'selected':''}>${escapeHtml(t.name)}</option>`).join('');
 }
+function feePlanOptionsHtml(selectedId){
+  return state.feePlans.map(p=>`<option value="${p.id}" ${p.id===selectedId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+}
 function openCourseForm(courseId){
   const editing = !!courseId;
   const course = editing ? state.courses.find(c=>c.id===courseId) : {};
@@ -942,6 +968,14 @@ function openCourseForm(courseId){
       <div class="field-hint">没有想要的老师？先关闭此窗口，去「老师管理」新增</div>
     </div>
     <div class="field">
+      <label for="cfFeePlan">收费方案</label>
+      <select id="cfFeePlan">
+        <option value="">跟随老师默认收费</option>
+        ${feePlanOptionsHtml(editing?course.feePlanId:null)}
+      </select>
+      <div class="field-hint">不同课程可以选用同一个方案，去「收费方案」管理和新增</div>
+    </div>
+    <div class="field">
       <label for="cfCap">名额上限</label>
       <input type="number" id="cfCap" min="1" value="${editing?(course.capacity||10):10}">
     </div>
@@ -962,6 +996,7 @@ async function submitCourseForm(courseId){
   const startTime = readTimeSelect('cfStart');
   const endTime = readTimeSelect('cfEnd');
   const teacherId = document.getElementById('cfTeacher').value;
+  const feePlanId = document.getElementById('cfFeePlan').value;
   const capacity = Math.max(1, parseInt(document.getElementById('cfCap').value)||1);
   const description = document.getElementById('cfDesc').value.trim();
 
@@ -970,9 +1005,9 @@ async function submitCourseForm(courseId){
 
   if(courseId){
     const c = state.courses.find(x=>x.id===courseId);
-    Object.assign(c, {name,date,grade,startTime,endTime,teacherId,capacity,description});
+    Object.assign(c, {name,date,grade,startTime,endTime,teacherId,feePlanId,capacity,description});
   }else{
-    state.courses.push({ id: uid(), name,date,grade,startTime,endTime,teacherId,capacity,description });
+    state.courses.push({ id: uid(), name,date,grade,startTime,endTime,teacherId,feePlanId,capacity,description });
   }
   closeModal();
   renderBoard();
@@ -994,6 +1029,60 @@ async function deleteCourse(courseId){
 
 function openTeacherManage(){
   renderTeacherManageModal();
+}
+function openFeeManage(){
+  renderFeeManageModal();
+}
+function renderFeeManageModal(){
+  const list = state.feePlans.map(p=>`
+    <div class="teacher-item">
+      <div class="teacher-item-name">
+        <input type="text" value="${escapeHtml(p.name)}" style="border:none;background:none;font-weight:700;font-size:14px;padding:0;width:60%;" placeholder="方案名称，例如：一对一课程" onchange="updateFeePlanField('${p.id}','name',this.value)">
+        <button class="btn btn-danger btn-sm" onclick="deleteFeePlan('${p.id}')">删除</button>
+      </div>
+      <textarea placeholder="例如：一对一 $80/小时，一对二 $45/人/小时" onchange="updateFeePlanField('${p.id}','text',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(p.text||'')}</textarea>
+    </div>
+  `).join('') || `<p class="field-hint">还没有收费方案，先添加一个吧</p>`;
+
+  openModal(`
+    <h2>收费方案</h2>
+    <p class="sub">收费方案是独立、共用的，不同老师、不同课程都可以选用同一个方案，改一处、多处同步更新</p>
+    <div class="teacher-list">${list}</div>
+    <div class="field">
+      <label for="newFeePlanName">新增方案</label>
+      <input type="text" id="newFeePlanName" placeholder="方案名称，例如：标准收费">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+      <button class="btn btn-primary" onclick="addFeePlan()">＋ 添加</button>
+    </div>
+  `);
+}
+async function addFeePlan(){
+  const name = document.getElementById('newFeePlanName').value.trim();
+  if(!name){ toast('请填写方案名称', true); return; }
+  state.feePlans.push({ id: uid(), name, text:'' });
+  await syncToCloud();
+  renderFeeManageModal();
+  toast('方案已添加');
+}
+async function updateFeePlanField(planId, field, value){
+  const p = state.feePlans.find(x=>x.id===planId);
+  if(!p) return;
+  p[field] = value.trim();
+  const ok = await syncToCloud();
+  renderBoard();
+  if(ok) toast('已保存');
+}
+async function deleteFeePlan(planId){
+  const used = state.courses.some(c=>c.feePlanId===planId);
+  if(used && !confirm('有课程正在使用这个收费方案，删除后对应课程会显示老师默认收费，确定删除吗？')) return;
+  state.feePlans = state.feePlans.filter(p=>p.id!==planId);
+  state.courses.forEach(c=>{ if(c.feePlanId===planId) c.feePlanId=''; });
+  await syncToCloud();
+  renderFeeManageModal();
+  renderBoard();
+  toast('方案已删除');
 }
 function renderTeacherManageModal(){
   const list = state.teachers.map(t=>`
@@ -1394,6 +1483,7 @@ setTimeout(()=>{
   state.courses = seed.courses;
   state.teachers = seed.teachers;
   state.signups = seed.signups;
+  state.feePlans = seed.feePlans;
   state.settings = seed.settings;
   state.loaded = true;
   state.offline = true;
