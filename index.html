@@ -371,7 +371,6 @@ const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: 
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
-let expandedFees = {};
 
 /* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
    管理员可以直接在「机构管理」里编辑或删除这门课，改成自己的真实课程即可。 */
@@ -564,7 +563,6 @@ function courseCardHtml(course){
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
   const descExpanded = !!expandedDescs[course.id];
-  const feeExpanded = !!expandedFees[course.id];
 
   let rosterRows = '';
   if(enrolledList.length===0){
@@ -634,14 +632,11 @@ function courseCardHtml(course){
       </div>
     </div>
 
-    <div class="desc-block">
-      <div class="desc-header">
+    <div class="desc-block" style="padding:9px 13px;">
+      <div class="desc-header" style="margin-bottom:0;">
         <span class="desc-avatar">💰</span>
         <span class="desc-label">收费标准</span>
-        ${teacherFee ? `<button class="desc-toggle ${feeExpanded?'open':''}" id="fee-toggle-${course.id}" onclick="toggleFee('${course.id}')"><span class="label">${feeExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
-      </div>
-      <div class="desc-wrap">
-        <p class="desc ${teacherFee?'':'empty'} ${feeExpanded?'expanded':''}" id="fee-${course.id}">${teacherFee? escapeHtml(teacherFee) : '老师还没有设置收费标准'}</p>
+        ${teacherFee ? `<button class="link-btn" onclick="showFeeDetail('${course.id}')"><span class="label">查看详情</span><span class="chev">›</span></button>` : `<span style="font-size:12px;color:var(--slate);flex-shrink:0;">未设置</span>`}
       </div>
     </div>
 
@@ -715,10 +710,6 @@ function checkDescOverflow(){
 }
 function toggleDesc(courseId){
   expandedDescs[courseId] = !expandedDescs[courseId];
-  renderBoard();
-}
-function toggleFee(courseId){
-  expandedFees[courseId] = !expandedFees[courseId];
   renderBoard();
 }
 
@@ -845,6 +836,19 @@ function showTeacherBio(teacherId){
     <h2>${escapeHtml(t.name)}</h2>
     <p class="sub">老师简介</p>
     <p style="white-space:pre-wrap;font-size:14px;">${t.bio? escapeHtml(t.bio) : '这位老师还没有填写简介。'}</p>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">知道了</button></div>
+  `);
+}
+function showFeeDetail(courseId){
+  const course = state.courses.find(c=>c.id===courseId);
+  if(!course) return;
+  const teacher = state.teachers.find(t=>t.id===course.teacherId);
+  const feePlan = state.feePlans.find(p=>p.id===course.feePlanId);
+  const fee = (feePlan ? (feePlan.text || feePlan.name || '') : (teacher && teacher.feeNotice || '')).trim();
+  openModal(`
+    <h2>${escapeHtml(course.name)}</h2>
+    <p class="sub">💰 收费标准</p>
+    <p style="white-space:pre-wrap;font-size:14px;">${fee? escapeHtml(fee) : '老师还没有设置收费标准。'}</p>
     <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">知道了</button></div>
   `);
 }
