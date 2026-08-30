@@ -226,9 +226,9 @@
   .desc-toggle{
     align-self:flex-start; background:none; border:none; padding:0; margin:0;
     font-size:12px; font-weight:700; color:var(--moss); cursor:pointer;
-    display:none; align-items:center; gap:3px; text-underline-offset:2px;
+    display:none; align-items:center; gap:3px; text-decoration:underline; text-underline-offset:2px;
   }
-  .desc-toggle:hover{ color:var(--moss-dark); text-decoration:underline; }
+  .desc-toggle:hover{ color:var(--moss-dark); }
   .desc-toggle.visible{ display:inline-flex; }
   .desc-toggle .chev{ font-size:9px; transition: transform .15s ease; display:inline-block; }
   .desc-toggle.open .chev{ transform: rotate(180deg); }
@@ -635,8 +635,8 @@ function courseCardHtml(course){
     <div class="teacher-block">
       <span class="teacher-avatar">${teacherInitial}</span>
       <div class="teacher-meta">
-        <span class="teacher-name">${teacher? escapeHtml(teacher.name) : '未指定老师'}</span>
         <span class="teacher-role">授课老师</span>
+        <span class="teacher-name">${teacher? escapeHtml(teacher.name) : '未指定老师'}</span>
       </div>
       ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')">简介 ›</button>` : ''}
     </div>
