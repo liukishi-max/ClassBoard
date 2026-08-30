@@ -218,12 +218,12 @@
   .desc-toggle{
     background:none; border:none; padding:0; margin:0; flex-shrink:0;
     font-size:12px; font-weight:700; color:var(--moss); cursor:pointer;
-    display:none; align-items:center; gap:3px; text-decoration:underline; text-underline-offset:2px;
+    display:none; align-items:center; gap:3px;
   }
   .desc-toggle:hover{ color:var(--moss-dark); }
   .desc-toggle.visible{ display:inline-flex; }
-  .desc-toggle .chev{ font-size:9px; transition: transform .15s ease; display:inline-block; }
-  .desc-toggle.open .chev{ transform: rotate(180deg); }
+  .desc-toggle .label{ text-decoration:underline; text-underline-offset:2px; }
+  .desc-toggle .chev{ font-size:12px; display:inline-block; }
 
   /* 授课老师：独立浅色区块，头像 + 姓名 */
   .teacher-block{
@@ -239,11 +239,13 @@
   }
   .teacher-meta{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
   .teacher-name{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
-  .teacher-role{ font-size:10.5px; color:var(--slate); font-weight:700; }
+  .teacher-role{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
   .link-btn{
     background:none; border:none; color:var(--moss); font-size:12px; font-weight:700;
-    text-decoration:underline; text-underline-offset:2px; padding:0; flex-shrink:0;
+    padding:0; flex-shrink:0; display:inline-flex; align-items:center; gap:3px;
   }
+  .link-btn .label{ text-decoration:underline; text-underline-offset:2px; }
+  .link-btn .chev{ font-size:12px; display:inline-block; }
 
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
@@ -361,6 +363,7 @@ const state = { courses: [], teachers: [], signups: [], settings: { orgName: "Cl
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
+let expandedFees = {};
 
 /* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
    管理员可以直接在「机构管理」里编辑或删除这门课，改成自己的真实课程即可。 */
@@ -379,7 +382,7 @@ function templateSeedData(){
       startTime: '09:00',
       endTime: '10:00',
       teacherId: teacherId,
-      capacity: 6,
+      capacity: 4,
       description: 'Ms. Erin 拥有10年以上少儿教育经验，擅长用引导式提问带动孩子独立思考，帮助建立数感与逻辑思维习惯。本次试课从生活情境切入，让孩子在轻松的氛围中体验数学的乐趣，欢迎家长陪同试听。'
     }],
     teachers: [{
@@ -538,6 +541,7 @@ function courseCardHtml(course){
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
   const descExpanded = !!expandedDescs[course.id];
+  const feeExpanded = !!expandedFees[course.id];
 
   let rosterRows = '';
   if(enrolledList.length===0){
@@ -598,9 +602,9 @@ function courseCardHtml(course){
 
     <div class="desc-block">
       <div class="desc-header">
-        <span class="desc-avatar">课</span>
+        <span class="desc-avatar">📖</span>
         <span class="desc-label">课程简介</span>
-        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
+        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
       </div>
       <div class="desc-wrap">
         <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
@@ -611,19 +615,20 @@ function courseCardHtml(course){
       <div class="desc-header">
         <span class="desc-avatar">💰</span>
         <span class="desc-label">收费标准</span>
+        ${teacherFee ? `<button class="desc-toggle ${feeExpanded?'open':''}" id="fee-toggle-${course.id}" onclick="toggleFee('${course.id}')"><span class="label">${feeExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
       </div>
       <div class="desc-wrap">
-        <p class="desc expanded ${teacherFee?'':'empty'}">${teacherFee? escapeHtml(teacherFee) : '老师还没有设置收费标准'}</p>
+        <p class="desc ${teacherFee?'':'empty'} ${feeExpanded?'expanded':''}" id="fee-${course.id}">${teacherFee? escapeHtml(teacherFee) : '老师还没有设置收费标准'}</p>
       </div>
     </div>
 
     <div class="teacher-block">
-      <span class="teacher-avatar">${teacherInitial}</span>
+      <span class="teacher-avatar">🍎</span>
       <div class="teacher-meta">
         <span class="teacher-role">授课老师</span>
         <span class="teacher-name">${teacher? escapeHtml(teacher.name) : '未指定老师'}</span>
       </div>
-      ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')">简介 ›</button>` : ''}
+      ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')"><span class="label">简介</span><span class="chev">›</span></button>` : ''}
     </div>
 
     <button class="roster-toggle" onclick="toggleRoster('${course.id}')">${rosterOpen?'收起':'查看'}报名名单（${enrolledList.length}人） ${rosterOpen?'▲':'▼'}</button>
@@ -687,6 +692,10 @@ function checkDescOverflow(){
 }
 function toggleDesc(courseId){
   expandedDescs[courseId] = !expandedDescs[courseId];
+  renderBoard();
+}
+function toggleFee(courseId){
+  expandedFees[courseId] = !expandedFees[courseId];
   renderBoard();
 }
 
