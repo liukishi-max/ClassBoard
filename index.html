@@ -103,11 +103,11 @@
   .tagline{ margin: 6px 0 26px; color:var(--slate); font-size:14px; }
 
   .fee-notice{
-    background:var(--amber-tint); border:1px solid var(--amber); border-radius:12px;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px;
     padding:12px 16px; margin-bottom:22px; display:flex; flex-direction:column; gap:4px;
   }
-  .fee-notice-label{ font-weight:800; font-size:13px; color:#8a611f; }
-  .fee-notice-text{ font-size:13.5px; color:#6b4c17; white-space:pre-wrap; line-height:1.6; }
+  .fee-notice-label{ font-weight:800; font-size:13px; color:var(--moss-dark); }
+  .fee-notice-text{ font-size:13.5px; color:var(--ink-soft); white-space:pre-wrap; line-height:1.6; }
   .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
 
   .seed-notice{
@@ -207,6 +207,14 @@
   .desc-block{
     background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px; padding:11px 13px;
   }
+  .desc-header{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .desc-avatar{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(155deg, var(--moss), var(--moss-dark)); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:800; font-size:13px;
+  }
+  .desc-label{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
   .desc-wrap{ display:flex; flex-direction:column; gap:4px; }
   .desc{
     font-size:13.5px; color:var(--ink-soft); margin:0; white-space:pre-wrap;
@@ -614,6 +622,10 @@ function courseCardHtml(course){
     </div>
 
     <div class="desc-block">
+      <div class="desc-header">
+        <span class="desc-avatar">课</span>
+        <span class="desc-label">课程简介</span>
+      </div>
       <div class="desc-wrap">
         <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
         ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
@@ -1210,15 +1222,15 @@ function layoutPoster(ctx, W, draw){
   if(fee){
     const boxH = 118;
     if(draw){
-      ctx.fillStyle = '#FBF1DF';
+      ctx.fillStyle = '#E3EDE5';
       roundRect(ctx, pad, y, W-2*pad, boxH, 12); ctx.fill();
-      ctx.strokeStyle = '#C98A2C'; ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(63,107,82,0.35)'; ctx.lineWidth = 1.5;
       roundRect(ctx, pad, y, W-2*pad, boxH, 12); ctx.stroke();
-      ctx.fillStyle = '#8a611f';
+      ctx.fillStyle = '#2C4C3B';
       ctx.font = '700 20px "Noto Sans SC", sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('💰 收费标准', pad+18, y+32);
-      ctx.fillStyle = '#6b4c17';
+      ctx.fillStyle = '#3A453F';
       ctx.font = '400 18px "Noto Sans SC", sans-serif';
       wrapText(ctx, fee, pad+18, y+62, W-2*pad-36, 27, 2);
     }
