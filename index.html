@@ -254,6 +254,17 @@
   .link-btn .label{ text-decoration:underline; text-underline-offset:2px; }
   .link-btn .chev{ font-size:12px; display:inline-block; }
 
+  .teacher-bio-block{
+    display:flex; align-items:flex-start; gap:12px;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px;
+    padding:11px 15px; margin: -8px 0 16px;
+  }
+  .teacher-bio-text{
+    flex:1; margin:0; font-size:13px; color:var(--ink-soft); line-height:1.6; letter-spacing:0.1px;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden;
+  }
+  .teacher-bio-text.expanded{ -webkit-line-clamp:unset; overflow:visible; white-space:pre-wrap; }
+
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
   .seat-dot.sm{ width:6px; height:6px; }
@@ -371,6 +382,7 @@ const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: 
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
+let expandedTeacherBios = {};
 
 /* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
    管理员可以直接在「机构管理」里编辑或删除这门课，改成自己的真实课程即可。 */
@@ -640,15 +652,6 @@ function courseCardHtml(course){
       </div>
     </div>
 
-    <div class="teacher-block">
-      <span class="teacher-avatar">🍎</span>
-      <div class="teacher-meta">
-        <span class="teacher-role">授课老师</span>
-        <span class="teacher-name">${teacher? escapeHtml(teacher.name) : '未指定老师'}</span>
-      </div>
-      ${teacher && teacher.bio ? `<button class="link-btn" onclick="showTeacherBio('${teacher.id}')"><span class="label">简介</span><span class="chev">›</span></button>` : ''}
-    </div>
-
     <button class="roster-toggle" onclick="toggleRoster('${course.id}')">${rosterOpen?'收起':'查看'}报名名单（${enrolledList.length}人） ${rosterOpen?'▲':'▼'}</button>
     <div class="roster ${rosterOpen?'open':''}" id="roster-${course.id}">${rosterRows}</div>
     <div class="card-actions">${actionBtn}${adminBtns}</div>
@@ -671,21 +674,47 @@ function renderBoard(){
     return;
   }
   const isSeedOnly = state.courses.length===1 && state.courses[0].id==='seed-course-math';
+
+  // 按授课老师分组（原来是按日期分组，现在改成按老师分组：
+  // 每位老师一个板块，板块内的课程再按 日期 + 上课时间 排序）
   const groups = {};
   state.courses.forEach(c=>{
-    const key = c.date || '未设置日期';
+    const key = c.teacherId || '__no_teacher__';
     (groups[key] = groups[key] || []).push(c);
   });
-  const sortedDates = Object.keys(groups).sort((a,b)=> a.localeCompare(b));
+
+  // 分组顺序：跟着「老师管理」里老师的排列顺序走，未指定老师的课程统一放最后
+  const teacherOrder = state.teachers.map(t=>t.id);
+  const sortedKeys = Object.keys(groups).sort((a,b)=>{
+    if(a==='__no_teacher__') return 1;
+    if(b==='__no_teacher__') return -1;
+    const ia = teacherOrder.indexOf(a), ib = teacherOrder.indexOf(b);
+    if(ia===-1 && ib===-1) return 0;
+    if(ia===-1) return 1;
+    if(ib===-1) return -1;
+    return ia-ib;
+  });
+
   let html = '';
   if(state.offline){
     html += `<div class="seed-notice">📶 连接云端数据超时，当前为本地预览，操作可能无法保存。请检查网络后刷新页面重试。</div>`;
   }else if(isSeedOnly){
     html += `<div class="seed-notice">👋 这是示例课程，帮你预览页面效果${isAdmin ? '，可点击下方「编辑」改成真实课程，或「删除」后自行发布' : '，机构正式课程发布后会替换成真实内容'}</div>`;
   }
-  sortedDates.forEach(date=>{
-    const courses = groups[date].sort((a,b)=> (a.startTime||'').localeCompare(b.startTime||''));
-    html += `<div class="date-divider"><span class="date-label">${formatDateLabel(date)}</span><span class="date-line"></span></div>`;
+  sortedKeys.forEach(key=>{
+    const teacher = state.teachers.find(t=>t.id===key);
+    const teacherLabel = teacher ? teacher.name : '未指定老师';
+    const courses = groups[key].sort((a,b)=>
+      (a.date||'').localeCompare(b.date||'') || (a.startTime||'').localeCompare(b.startTime||'')
+    );
+    html += `<div class="date-divider"><span class="date-label">🍎 ${escapeHtml(teacherLabel)}</span><span class="date-line"></span></div>`;
+    if(teacher && teacher.bio){
+      const bioOpen = !!expandedTeacherBios[key];
+      html += `<div class="teacher-bio-block">
+        <p class="teacher-bio-text ${bioOpen?'expanded':''}">${escapeHtml(teacher.bio)}</p>
+        <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
+      </div>`;
+    }
     html += `<div class="grid">${courses.map(courseCardHtml).join('')}</div>`;
   });
   el.innerHTML = html;
@@ -829,6 +858,10 @@ async function saveOrgSettings(){
   if(ok) toast('机构信息已更新');
 }
 
+function toggleTeacherBioBlock(teacherId){
+  expandedTeacherBios[teacherId] = !expandedTeacherBios[teacherId];
+  renderBoard();
+}
 function showTeacherBio(teacherId){
   const t = state.teachers.find(x=>x.id===teacherId);
   if(!t) return;
