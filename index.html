@@ -102,14 +102,6 @@
   .brand-sub{ font-size:13.5px; color:var(--slate); font-weight:500; letter-spacing:0.3px; }
   .tagline{ margin: 6px 0 26px; color:var(--slate); font-size:14px; }
 
-  .fee-notice{
-    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px;
-    padding:12px 16px; margin-bottom:22px; display:flex; flex-direction:column; gap:4px;
-  }
-  .fee-notice-label{ font-weight:800; font-size:13px; color:var(--moss-dark); }
-  .fee-notice-text{ font-size:13.5px; color:var(--ink-soft); white-space:pre-wrap; line-height:1.6; }
-  .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
-
   .seed-notice{
     background:var(--moss-tint); border:1px solid rgba(63,107,82,0.16); border-radius:12px;
     padding:11px 16px; margin-bottom:18px; font-size:12.5px; color:var(--moss-dark); line-height:1.6;
@@ -214,7 +206,7 @@
     display:flex; align-items:center; justify-content:center;
     font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:800; font-size:13px;
   }
-  .desc-label{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
+  .desc-label{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; flex:1; }
   .desc-wrap{ display:flex; flex-direction:column; gap:4px; }
   .desc{
     font-size:13.5px; color:var(--ink-soft); margin:0; white-space:pre-wrap;
@@ -224,7 +216,7 @@
   .desc.expanded{ -webkit-line-clamp:unset; overflow:visible; }
   .desc.empty{ color:#9AA69D; font-style:italic; -webkit-line-clamp:1; }
   .desc-toggle{
-    align-self:flex-start; background:none; border:none; padding:0; margin:0;
+    background:none; border:none; padding:0; margin:0; flex-shrink:0;
     font-size:12px; font-weight:700; color:var(--moss); cursor:pointer;
     display:none; align-items:center; gap:3px; text-decoration:underline; text-underline-offset:2px;
   }
@@ -247,7 +239,7 @@
   }
   .teacher-meta{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
   .teacher-name{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
-  .teacher-role{ font-size:10.5px; color:var(--slate); }
+  .teacher-role{ font-size:10.5px; color:var(--slate); font-weight:700; }
   .link-btn{
     background:none; border:none; color:var(--moss); font-size:12px; font-weight:700;
     text-decoration:underline; text-underline-offset:2px; padding:0; flex-shrink:0;
@@ -354,8 +346,6 @@
     </div>
     <div class="header-actions" id="headerActions"></div>
   </header>
-  <div id="feeNoticeBox" style="display:none;"></div>
-
   <div id="boardArea"></div>
 </div>
 
@@ -367,7 +357,7 @@ const ADMIN_PASSWORD = "1234";
 // 从网址参数里读取机构标识，例如 ?org=katy —— 不同机构用不同的 org 参数，
 // 数据会各自独立存储，互不影响。没带参数时用 "main_data"，兼容之前已有的数据。
 const ORG_ID = (new URLSearchParams(window.location.search).get('org') || 'main_data').trim() || 'main_data';
-const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard", feeNotice: "" }, loaded:false };
+const state = { courses: [], teachers: [], signups: [], settings: { orgName: "ClassBoard" }, loaded:false };
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
@@ -395,10 +385,11 @@ function templateSeedData(){
     teachers: [{
       id: teacherId,
       name: 'Ms. Erin',
-      bio: '10年以上少儿数学与思维教学经验，擅长思维引导式教学，课堂氛围轻松有趣，深受学生和家长喜爱。'
+      bio: '10年以上少儿数学与思维教学经验，擅长思维引导式教学，课堂氛围轻松有趣，深受学生和家长喜爱。',
+      feeNotice: '单次试课 100 元，正式课 150 元/次，报名后请添加老师微信付款'
     }],
     signups: [],
-    settings: { orgName: "ClassBoard", feeNotice: "" }
+    settings: { orgName: "ClassBoard" }
   };
 }
 
@@ -412,7 +403,7 @@ function initFirebaseSync(){
       state.courses = data.courses || [];
       state.teachers = data.teachers || [];
       state.signups = data.signups || [];
-      state.settings = data.settings || { orgName: "ClassBoard", feeNotice: "" };
+      state.settings = data.settings || { orgName: "ClassBoard" };
     } else {
       const seed = templateSeedData();
       state.courses = seed.courses;
@@ -423,7 +414,6 @@ function initFirebaseSync(){
     state.loaded = true;
     state.offline = false;
     renderBrand();
-    renderFeeNotice();
     renderBoard();
     renderHeaderActions();
   }, (error) => {
@@ -499,22 +489,6 @@ function renderBrand(){
   document.getElementById('brandMark').textContent = org.charAt(0).toUpperCase();
   document.title = `${org} · 课程板`;
 }
-function renderFeeNotice(){
-  const el = document.getElementById('feeNoticeBox');
-  if(!el) return;
-  const fee = (state.settings && state.settings.feeNotice) || '';
-  if(fee){
-    el.style.display = 'block';
-    el.innerHTML = `<div class="fee-notice"><span class="fee-notice-label">💰 收费标准</span><div class="fee-notice-text">${escapeHtml(fee)}</div></div>`;
-  }else if(isAdmin){
-    el.style.display = 'block';
-    el.innerHTML = `<div class="fee-notice fee-notice-empty">还没有设置收费标准，点右上角「机构设置」填写</div>`;
-  }else{
-    el.style.display = 'none';
-    el.innerHTML = '';
-  }
-}
-
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
   if(!el) return;
@@ -559,8 +533,9 @@ function seatDotsHtml(meta, compact){
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
+  const teacherFee = (teacher && teacher.feeNotice || '').trim();
   const accentColor = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
-  const enrolledList = enrolledOf(course.id);
+  const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
   const descExpanded = !!expandedDescs[course.id];
 
@@ -625,10 +600,20 @@ function courseCardHtml(course){
       <div class="desc-header">
         <span class="desc-avatar">课</span>
         <span class="desc-label">课程简介</span>
+        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
       </div>
       <div class="desc-wrap">
         <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
-        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">▾</span></button>` : ''}
+      </div>
+    </div>
+
+    <div class="desc-block">
+      <div class="desc-header">
+        <span class="desc-avatar">💰</span>
+        <span class="desc-label">收费标准</span>
+      </div>
+      <div class="desc-wrap">
+        <p class="desc expanded ${teacherFee?'':'empty'}">${teacherFee? escapeHtml(teacherFee) : '老师还没有设置收费标准'}</p>
       </div>
     </div>
 
@@ -687,9 +672,9 @@ function renderBoard(){
 /* 课程简介默认最多显示 3 行（CSS line-clamp），这里检测文字是否被截断，
    只有真正超出 3 行的简介才会显示"查看详情"按钮，短简介不会出现多余按钮 */
 function checkDescOverflow(){
-  document.querySelectorAll('.desc-wrap').forEach(wrap=>{
-    const desc = wrap.querySelector('.desc');
-    const toggle = wrap.querySelector('.desc-toggle');
+  document.querySelectorAll('.desc-block').forEach(block=>{
+    const desc = block.querySelector('.desc');
+    const toggle = block.querySelector('.desc-toggle');
     if(!desc || !toggle) return;
     if(desc.classList.contains('expanded')){
       toggle.classList.add('visible');
@@ -783,7 +768,6 @@ function submitPassword(){
     isAdmin = true;
     closeModal();
     renderHeaderActions();
-    renderFeeNotice();
     renderBoard();
     toast('已解锁机构管理');
   }else{
@@ -793,7 +777,6 @@ function submitPassword(){
 function exitAdmin(){
   isAdmin = false;
   renderHeaderActions();
-  renderFeeNotice();
   renderBoard();
   toast('已退出管理模式');
 }
@@ -801,15 +784,11 @@ function exitAdmin(){
 function openOrgSettings(){
   openModal(`
     <h2>机构设置</h2>
-    <p class="sub">修改网页上显示的机构名称与收费标准，全网实时生效</p>
+    <p class="sub">修改网页上显示的机构名称，全网实时生效</p>
     <div class="field">
       <label for="orgNameInput">机构名称</label>
       <input type="text" id="orgNameInput" value="${escapeHtml(state.settings.orgName || 'ClassBoard')}" placeholder="例如：卓越教育工作室">
-    </div>
-    <div class="field">
-      <label for="feeNoticeInput">收费标准</label>
-      <textarea id="feeNoticeInput" placeholder="例如：单次课 150 元，10 次课包 1300 元，报名后请添加老师微信付款">${escapeHtml(state.settings.feeNotice || '')}</textarea>
-      <div class="field-hint">会显示在课程列表上方，家长报名前就能看到</div>
+      <div class="field-hint">收费标准现在按老师单独设置，请前往「老师管理」填写</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
@@ -819,12 +798,9 @@ function openOrgSettings(){
 }
 async function saveOrgSettings(){
   const name = document.getElementById('orgNameInput').value.trim();
-  const fee = document.getElementById('feeNoticeInput').value.trim();
   if(!name){ toast('机构名称不能为空', true); return; }
   state.settings.orgName = name;
-  state.settings.feeNotice = fee;
   renderBrand();
-  renderFeeNotice();
   closeModal();
   const ok = await syncToCloud();
   if(ok) toast('机构信息已更新');
@@ -1017,13 +993,16 @@ function renderTeacherManageModal(){
         <input type="text" value="${escapeHtml(t.name)}" style="border:none;background:none;font-weight:700;font-size:14px;padding:0;width:60%;" onchange="updateTeacherField('${t.id}','name',this.value)">
         <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}')">删除</button>
       </div>
+      <div class="field-hint" style="margin:0 0 4px;">简介</div>
       <textarea placeholder="教龄、擅长方向等介绍" onchange="updateTeacherField('${t.id}','bio',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(t.bio||'')}</textarea>
+      <div class="field-hint" style="margin:8px 0 4px;">收费标准（会显示在这位老师的课程卡片上）</div>
+      <textarea placeholder="例如：一对一 $80/小时，一对二 $45/人/小时" onchange="updateTeacherField('${t.id}','feeNotice',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(t.feeNotice||'')}</textarea>
     </div>
   `).join('') || `<p class="field-hint">还没有添加老师</p>`;
 
   openModal(`
     <h2>老师管理</h2>
-    <p class="sub">老师简介会自动显示在对应课程卡片上</p>
+    <p class="sub">老师简介和收费标准会自动显示在对应课程卡片上，不同老师可以设置不同收费</p>
     <div class="teacher-list">${list}</div>
     <div class="field">
       <label for="newTeacherName">新增老师</label>
@@ -1038,7 +1017,7 @@ function renderTeacherManageModal(){
 async function addTeacher(){
   const name = document.getElementById('newTeacherName').value.trim();
   if(!name){ toast('请填写老师姓名', true); return; }
-  state.teachers.push({ id: uid(), name, bio:'' });
+  state.teachers.push({ id: uid(), name, bio:'', feeNotice:'' });
   await syncToCloud();
   renderTeacherManageModal();
   renderBoard();
@@ -1395,7 +1374,6 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines){
    避免网络慢或 Firebase 连接延迟时右上角一片空白 */
 renderHeaderActions();
 renderBrand();
-renderFeeNotice();
 renderBoard();
 
 /* 兜底：如果几秒内云端数据一直没连上（网络受限、预览环境屏蔽了 Firebase 等），
@@ -1411,7 +1389,6 @@ setTimeout(()=>{
   state.loaded = true;
   state.offline = true;
   renderBrand();
-  renderFeeNotice();
   renderBoard();
   renderHeaderActions();
 }, 3500);
