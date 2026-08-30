@@ -12,7 +12,7 @@
   <meta property="og:type" content="website">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -77,8 +77,8 @@
     text-rendering:optimizeLegibility;
     -webkit-font-smoothing:antialiased;
     background-image:
-      radial-gradient(circle at 1px 1px, rgba(31,42,36,0.05) 1px, transparent 0);
-    background-size: 22px 22px;
+      radial-gradient(circle at 1px 1px, rgba(31,42,36,0.028) 1px, transparent 1.4px);
+    background-size: 30px 30px;
   }
   a{color:inherit;}
   button{font-family:inherit; cursor:pointer;}
@@ -95,10 +95,10 @@
   .brand-mark{
     display:inline-flex; align-items:center; justify-content:center;
     width:36px; height:36px; border-radius:10px;
-    background: linear-gradient(155deg, var(--moss), var(--moss-dark)); color:#fff; font-family:'Noto Serif SC', serif;
+    background: linear-gradient(155deg, var(--moss), var(--moss-dark)); color:#fff; font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif;
     font-weight:900; font-size:17px; flex-shrink:0; box-shadow:0 3px 8px rgba(44,76,59,0.28);
   }
-  .brand-name{ font-family:'Noto Serif SC', serif; font-weight:900; font-size:27px; letter-spacing:0.3px; }
+  .brand-name{ font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:900; font-size:27px; letter-spacing:0.3px; }
   .brand-sub{ font-size:13.5px; color:var(--slate); font-weight:500; letter-spacing:0.3px; }
   .tagline{ margin: 6px 0 26px; color:var(--slate); font-size:14px; }
 
@@ -111,8 +111,9 @@
   .fee-notice-empty{ font-size:12.5px; color:var(--slate); font-style:italic; background:var(--paper-deep); border:1px dashed var(--line); }
 
   .seed-notice{
-    background:var(--amber-tint); border:1px dashed var(--amber); border-radius:12px;
-    padding:10px 15px; margin-bottom:18px; font-size:12.5px; color:#8a611f; line-height:1.6;
+    background:var(--moss-tint); border:1px solid rgba(63,107,82,0.16); border-radius:12px;
+    padding:11px 16px; margin-bottom:18px; font-size:12.5px; color:var(--moss-dark); line-height:1.6;
+    box-shadow:var(--shadow);
   }
 
   .header-actions{
@@ -149,13 +150,13 @@
   }
   .date-divider:first-of-type{ margin-top: 18px; }
   .date-label{
-    font-family:'Noto Serif SC', serif; font-weight:700; font-size:15.5px; letter-spacing:0.3px;
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:15.5px; letter-spacing:0.3px;
     background:var(--ink); color:var(--paper); padding:6px 15px 6px 13px;
     border-radius: 3px 10px 10px 3px; position:relative;
   }
   .date-label::before{
     content:''; position:absolute; left:-6px; top:50%; transform:translateY(-50%);
-    width:6px; height:6px; border-radius:50%; background:var(--amber);
+    width:6px; height:6px; border-radius:50%; background:#5B6B63;
     box-shadow: 0 0 0 2px var(--paper);
   }
   .date-line{ flex:1; height:1px; background: var(--line); }
@@ -176,7 +177,7 @@
     content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--card-accent, var(--moss));
   }
   .course-name{
-    font-family:'Noto Serif SC', serif; font-weight:700; font-size:19.5px; margin:0;
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:19.5px; margin:0;
     letter-spacing:0.2px; line-height:1.4; color:var(--ink);
   }
 
@@ -234,7 +235,7 @@
     width:32px; height:32px; border-radius:50%; flex-shrink:0;
     background:linear-gradient(155deg, var(--moss), var(--moss-dark)); color:#fff;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Noto Serif SC', serif; font-weight:800; font-size:13px;
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:800; font-size:13px;
   }
   .teacher-meta{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
   .teacher-name{ font-size:13.5px; font-weight:700; color:var(--ink); letter-spacing:0.1px; }
@@ -266,7 +267,7 @@
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
     display:flex; align-items:center; justify-content:space-between; font-size:13px;
-    background:var(--paper); border-radius:8px; padding:6px 9px; gap:8px;
+    background:var(--paper-deep); border-radius:8px; padding:6px 9px; gap:8px;
   }
   .roster-name{ font-weight:600; }
   .roster-name-input{
@@ -283,7 +284,7 @@
 
   .empty-state{ text-align:center; padding: 70px 20px; color:var(--slate); }
   .empty-state .glyph{ font-size:34px; margin-bottom:10px; }
-  .empty-state h3{ font-family:'Noto Serif SC',serif; color:var(--ink); margin:0 0 6px; font-size:18px; font-weight:700; }
+  .empty-state h3{ font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; color:var(--ink); margin:0 0 6px; font-size:18px; font-weight:700; }
   .empty-state p{ font-size:13.5px; }
 
   .overlay{
@@ -295,13 +296,13 @@
     max-height:88vh; overflow-y:auto; padding:26px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
     position:relative;
   }
-  .modal h2{ font-family:'Noto Serif SC', serif; margin:0 0 4px; font-size:21px; font-weight:700; letter-spacing:0.2px; }
+  .modal h2{ font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; margin:0 0 4px; font-size:21px; font-weight:700; letter-spacing:0.2px; }
   .modal .sub{ color:var(--slate); font-size:13px; margin: 0 0 18px; }
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:13px; font-weight:700; margin-bottom:5px; color:var(--ink-soft); }
   .field input, .field select, .field textarea{
     width:100%; padding:10px 12px; border-radius:9px; border:1.5px solid var(--line);
-    font-family:inherit; font-size:14px; background:var(--paper); color:var(--ink);
+    font-family:inherit; font-size:14px; background:var(--paper-deep); color:var(--ink);
   }
   .field textarea{ resize:vertical; min-height:64px; }
   .field-row{ display:flex; gap:10px; }
@@ -313,7 +314,7 @@
     position:absolute; top:16px; right:16px; background:none; border:none; font-size:20px; color:var(--slate);
   }
   .teacher-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
-  .teacher-item{ background:var(--paper); border-radius:10px; padding:10px 12px; }
+  .teacher-item{ background:var(--paper-deep); border-radius:10px; padding:10px 12px; }
   .teacher-item-name{ font-weight:700; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
 
   #toast{
@@ -1193,14 +1194,14 @@ function layoutPoster(ctx, W, draw){
 
     const org = state.settings.orgName || 'ClassBoard';
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '700 40px "Noto Serif SC", serif';
+    ctx.font = '700 40px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(truncateText(ctx, org, W-2*pad), pad, 92);
     ctx.font = '500 20px "Noto Sans SC", sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
     ctx.fillText('课程报名', pad, 128);
   }else{
-    ctx.font = '700 40px "Noto Serif SC", serif';
+    ctx.font = '700 40px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
   }
   y = headerH + 34;
 
@@ -1248,7 +1249,7 @@ function layoutPoster(ctx, W, draw){
         roundRect(ctx, pad, y, 6, cardH, 3); ctx.fill();
 
         ctx.fillStyle = '#1F2A24';
-        ctx.font = '700 26px "Noto Serif SC", serif';
+        ctx.font = '700 26px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText(truncateText(ctx, course.name||'未命名课程', W-2*pad-140), pad+24, y+40);
 
