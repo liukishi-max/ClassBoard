@@ -1132,6 +1132,12 @@ function renderFeeManageModal(){
     <div class="field">
       <label for="newFeePlanName">新增方案</label>
       <input type="text" id="newFeePlanName" placeholder="方案名称，例如：标准收费">
+      <div class="field-hint" style="margin-top:4px;">↑ 简短的名字，仅用于下拉菜单里挑选</div>
+    </div>
+    <div class="field">
+      <label for="newFeePlanText">收费详情（可选，支持换行，建议每行一条）</label>
+      <textarea id="newFeePlanText" placeholder="支持换行，建议每行一条，例如：&#10;一对一：$80/小时&#10;一对二：$45/人/小时" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:96px;font-family:inherit;line-height:1.6;background:var(--paper-deep);color:var(--ink);"></textarea>
+      <div class="field-hint" style="margin-top:4px;">↑ 这里才是会展示在课程卡片上、家长实际看到的内容，稍后也可以在上方列表里再修改</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
@@ -1141,8 +1147,9 @@ function renderFeeManageModal(){
 }
 async function addFeePlan(){
   const name = document.getElementById('newFeePlanName').value.trim();
+  const text = document.getElementById('newFeePlanText').value.trim();
   if(!name){ toast('请填写方案名称', true); return; }
-  state.feePlans.push({ id: uid(), name, text:'' });
+  state.feePlans.push({ id: uid(), name, text });
   await syncToCloud();
   renderFeeManageModal();
   toast('方案已添加');
