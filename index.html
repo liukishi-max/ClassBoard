@@ -254,6 +254,16 @@
   .link-btn .label{ text-decoration:underline; text-underline-offset:2px; }
   .link-btn .chev{ font-size:12px; display:inline-block; }
 
+  .fee-list{ display:flex; flex-direction:column; gap:5px; }
+  .fee-line{
+    position:relative; padding-left:14px; font-size:13px; color:var(--ink-soft);
+    line-height:1.5; letter-spacing:0.1px;
+  }
+  .fee-line::before{
+    content:''; position:absolute; left:1px; top:7px; width:5px; height:5px; border-radius:50%;
+    background:var(--amber);
+  }
+
   .teacher-bio-block{
     display:flex; align-items:flex-start; gap:12px;
     background:var(--moss-tint); border:1px solid rgba(63,107,82,0.18); border-radius:12px;
@@ -301,6 +311,14 @@
   }
   .pay-btn.paid{ border-color:var(--moss); background:var(--moss-tint); color:var(--moss-dark); }
   .pay-btn.unpaid{ border-color:var(--amber); background:var(--amber-tint); color:#8a611f; }
+
+  .time-subheader{ display:flex; align-items:center; gap:10px; margin: 6px 0 12px; }
+  .time-subheader .pill{
+    font-size:12px; font-weight:700; color:var(--moss-dark); background:var(--moss-tint);
+    border:1px solid rgba(63,107,82,0.22); padding:4px 13px; border-radius:999px; letter-spacing:0.2px;
+    white-space:nowrap;
+  }
+  .time-subheader .sub-line{ flex:1; height:1px; background:var(--line); }
 
   .empty-state{ text-align:center; padding: 70px 20px; color:var(--slate); }
   .empty-state .glyph{ font-size:34px; margin-bottom:10px; }
@@ -382,6 +400,7 @@ const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: 
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
+let expandedFees = {};
 let expandedTeacherBios = {};
 
 /* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
@@ -575,6 +594,9 @@ function courseCardHtml(course){
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
   const descExpanded = !!expandedDescs[course.id];
+  const feeExpanded = !!expandedFees[course.id];
+  const feeLines = teacherFee ? teacherFee.split(/\r?\n/).map(l=>l.trim()).filter(Boolean) : [];
+  const feeLinesShown = feeExpanded ? feeLines : feeLines.slice(0,3);
 
   let rosterRows = '';
   if(enrolledList.length===0){
@@ -645,11 +667,14 @@ function courseCardHtml(course){
     </div>
 
     <div class="desc-block" style="padding:9px 13px;">
-      <div class="desc-header" style="margin-bottom:0;">
+      <div class="desc-header" style="margin-bottom:${feeLines.length ? '8px' : '0'};">
         <span class="desc-avatar">💰</span>
         <span class="desc-label">收费标准</span>
-        ${teacherFee ? `<button class="link-btn" onclick="showFeeDetail('${course.id}')"><span class="label">查看详情</span><span class="chev">›</span></button>` : `<span style="font-size:12px;color:var(--slate);flex-shrink:0;">未设置</span>`}
+        ${feeLines.length>3 ? `<button class="desc-toggle visible" onclick="toggleFee('${course.id}')"><span class="label">${feeExpanded?'收起':'查看全部'}</span><span class="chev">${feeExpanded?'⌄':'›'}</span></button>` : ''}
       </div>
+      ${feeLines.length
+        ? `<div class="fee-list">${feeLinesShown.map(l=>`<div class="fee-line">${escapeHtml(l)}</div>`).join('')}</div>`
+        : `<span style="font-size:12px;color:var(--slate);">机构还没有设置收费标准</span>`}
     </div>
 
     <button class="roster-toggle" onclick="toggleRoster('${course.id}')">${rosterOpen?'收起':'查看'}报名名单（${enrolledList.length}人） ${rosterOpen?'▲':'▼'}</button>
@@ -715,7 +740,19 @@ function renderBoard(){
         <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
       </div>`;
     }
-    html += `<div class="grid">${courses.map(courseCardHtml).join('')}</div>`;
+
+    // 同一位老师如果在不同日期都有课，这里再按日期拆出一个小标签，
+    // 家长可以先扫一眼时间段，再决定点开哪张课程卡片，不用逐张卡片核对时间
+    const uniqueDates = [...new Set(courses.map(c=>c.date || ''))];
+    if(uniqueDates.length > 1){
+      uniqueDates.sort((a,b)=>a.localeCompare(b)).forEach(date=>{
+        const dateCourses = courses.filter(c=>(c.date||'')===date);
+        html += `<div class="time-subheader"><span class="pill">${date ? formatDateLabel(date) : '日期待定'}</span><span class="sub-line"></span></div>`;
+        html += `<div class="grid">${dateCourses.map(courseCardHtml).join('')}</div>`;
+      });
+    }else{
+      html += `<div class="grid">${courses.map(courseCardHtml).join('')}</div>`;
+    }
   });
   el.innerHTML = html;
   requestAnimationFrame(checkDescOverflow);
@@ -739,6 +776,10 @@ function checkDescOverflow(){
 }
 function toggleDesc(courseId){
   expandedDescs[courseId] = !expandedDescs[courseId];
+  renderBoard();
+}
+function toggleFee(courseId){
+  expandedFees[courseId] = !expandedFees[courseId];
   renderBoard();
 }
 
@@ -1079,8 +1120,8 @@ function renderFeeManageModal(){
         <button class="btn btn-danger btn-sm" onclick="deleteFeePlan('${p.id}')">删除</button>
       </div>
       <div class="field-hint" style="margin:2px 0 4px;">↑ 仅用于发布课程时在下拉菜单里挑选，简短即可</div>
-      <textarea placeholder="例如：一对一 $80/小时，一对二 $45/人/小时" onchange="updateFeePlanField('${p.id}','text',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(p.text||'')}</textarea>
-      <div class="field-hint" style="margin:4px 0 0;">↑ 这里才是会展示在课程卡片上、家长实际看到的收费详情</div>
+      <textarea placeholder="支持换行，建议每行一条，例如：&#10;一对一：$80/小时&#10;一对二：$45/人/小时" onchange="updateFeePlanField('${p.id}','text',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:96px;font-family:inherit;line-height:1.6;">${escapeHtml(p.text||'')}</textarea>
+      <div class="field-hint" style="margin:4px 0 0;">↑ 这里才是会展示在课程卡片上、家长实际看到的收费详情，支持换行，每行会作为一条单独展示</div>
     </div>
   `).join('') || `<p class="field-hint">还没有收费方案，先添加一个吧</p>`;
 
@@ -1133,8 +1174,8 @@ function renderTeacherManageModal(){
       </div>
       <div class="field-hint" style="margin:0 0 4px;">简介</div>
       <textarea placeholder="教龄、擅长方向等介绍" onchange="updateTeacherField('${t.id}','bio',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(t.bio||'')}</textarea>
-      <div class="field-hint" style="margin:8px 0 4px;">收费标准（会显示在这位老师的课程卡片上）</div>
-      <textarea placeholder="例如：一对一 $80/小时，一对二 $45/人/小时" onchange="updateTeacherField('${t.id}','feeNotice',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(t.feeNotice||'')}</textarea>
+      <div class="field-hint" style="margin:8px 0 4px;">收费标准（会显示在这位老师的课程卡片上，支持换行，建议每行一条）</div>
+      <textarea placeholder="支持换行，建议每行一条，例如：&#10;一对一：$80/小时&#10;一对二：$45/人/小时" onchange="updateTeacherField('${t.id}','feeNotice',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:96px;font-family:inherit;line-height:1.6;">${escapeHtml(t.feeNotice||'')}</textarea>
     </div>
   `).join('') || `<p class="field-hint">还没有添加老师</p>`;
 
