@@ -93,9 +93,9 @@
   .header-top{ display:flex; align-items:center; justify-content:space-between; }
   .brand{ display:flex; align-items:baseline; gap:11px; }
   .admin-entry-btn{
-    width:34px; height:34px; border-radius:50%; flex-shrink:0; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; flex-shrink:0; cursor:pointer;
     background:var(--moss-tint); border:1px solid rgba(63,107,82,0.25); color:var(--moss-dark);
-    display:flex; align-items:center; justify-content:center; font-size:15px;
+    font-size:13px; font-weight:700; padding:7px 14px 7px 12px; border-radius:999px;
     transition: background .15s ease, color .15s ease, transform .12s ease;
   }
   .admin-entry-btn:hover{ background:var(--moss); color:#fff; transform:translateY(-1px); }
@@ -527,7 +527,7 @@ function renderHeaderActions(){
     `;
   }else{
     el.innerHTML = '';
-    entry.innerHTML = `<button class="admin-entry-btn" onclick="openPasswordModal()" title="机构管理">🔐</button>`;
+    entry.innerHTML = `<button class="admin-entry-btn" onclick="openPasswordModal()" title="机构管理"><span>🔐</span><span>机构管理</span></button>`;
   }
 }
 
@@ -558,7 +558,8 @@ function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
   const feePlan = state.feePlans.find(p=>p.id===course.feePlanId);
-  const teacherFee = (feePlan && feePlan.text) ? feePlan.text.trim() : (teacher && teacher.feeNotice || '').trim();
+  const feePlanFee = feePlan ? (feePlan.text || feePlan.name || '').trim() : '';
+  const teacherFee = feePlanFee || (teacher && teacher.feeNotice || '').trim();
   const accentColor = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const rosterOpen = !!openRosters[course.id];
@@ -1040,7 +1041,9 @@ function renderFeeManageModal(){
         <input type="text" value="${escapeHtml(p.name)}" style="border:none;background:none;font-weight:700;font-size:14px;padding:0;width:60%;" placeholder="方案名称，例如：一对一课程" onchange="updateFeePlanField('${p.id}','name',this.value)">
         <button class="btn btn-danger btn-sm" onclick="deleteFeePlan('${p.id}')">删除</button>
       </div>
+      <div class="field-hint" style="margin:2px 0 4px;">↑ 仅用于发布课程时在下拉菜单里挑选，简短即可</div>
       <textarea placeholder="例如：一对一 $80/小时，一对二 $45/人/小时" onchange="updateFeePlanField('${p.id}','text',this.value)" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:8px;font-size:13px;min-height:50px;font-family:inherit;">${escapeHtml(p.text||'')}</textarea>
+      <div class="field-hint" style="margin:4px 0 0;">↑ 这里才是会展示在课程卡片上、家长实际看到的收费详情</div>
     </div>
   `).join('') || `<p class="field-hint">还没有收费方案，先添加一个吧</p>`;
 
