@@ -173,6 +173,21 @@
     position:relative; overflow:hidden;
     transition: transform .18s ease, box-shadow .18s ease;
   }
+  /* 同一位老师名下课程使用极轻的白色 / 暖米色交替，
+     保持统一绿色品牌体系，只靠课程底色区分相邻课程 */
+  .card.course-alt{
+    background:#FBF8F1;
+  }
+  .card.course-alt .roster-preview{
+    background:#FBF8F1;
+  }
+  .card.course-alt .core-meta,
+  .card.course-alt .details-trigger{
+    background:rgba(246,241,231,.78);
+  }
+  .card.course-alt .details-trigger:hover{
+    background:rgba(242,236,224,.9);
+  }
   .card:hover{
     transform: translateY(-2px);
     box-shadow: 0 2px 4px rgba(31,42,36,0.07), 0 12px 28px rgba(31,42,36,0.09);
@@ -368,7 +383,7 @@
   }
   .teacher-group:first-of-type{ margin-top: 18px; }
   .teacher-group-body{ padding: 16px 16px 18px; }
-  .teacher-group-body .grid{ margin:0; }
+  .teacher-group-body .grid{ margin:0; gap:8px; }
   .teacher-group-body .time-subheader:first-child{ margin-top:0; }
 
   .teacher-header-card{
@@ -832,7 +847,7 @@ function seatDotsHtml(meta, compact){
   return `<div class="seat-dots ${compact?'compact':''}">${dots}</div>`;
 }
 
-function courseCardHtml(course){
+function courseCardHtml(course, courseIndex=0){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
   const accentColor = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--low)' : 'var(--moss)';
@@ -880,7 +895,7 @@ function courseCardHtml(course){
   const seatText = meta.status==='full' ? `已报名 ${meta.enrolled}/${meta.cap}` : `剩余 ${meta.remaining}/${meta.cap}`;
 
   return `
-  <article class="card" style="--card-accent:${accentColor};--status-color:${accentColor};--status-bg:${statusBg}">
+  <article class="card ${courseIndex % 2 ? 'course-alt' : ''}" style="--card-accent:${accentColor};--status-color:${accentColor};--status-bg:${statusBg}">
     <div class="course-summary" role="button" tabindex="0" aria-expanded="${detailsExpanded}" aria-controls="details-${course.id}" onclick="toggleDesc('${course.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDesc('${course.id}')}">
       <div class="course-summary-top">
         <div class="course-title-wrap">
@@ -1016,15 +1031,17 @@ function renderBoard(){
 
     // 同一位老师如果在不同日期都有课，这里再按日期拆出一个小标签，
     // 家长可以先扫一眼时间段，再决定点开哪张课程卡片，不用逐张卡片核对时间
+    // 交替底色按该老师名下全部课程的顺序计算；即使跨日期分组也不会重新从白色开始
+    const courseIndexMap = new Map(courses.map((c,i)=>[c.id,i]));
     const uniqueDates = [...new Set(courses.map(c=>c.date || ''))];
     if(uniqueDates.length > 1){
       uniqueDates.sort((a,b)=>a.localeCompare(b)).forEach(date=>{
         const dateCourses = courses.filter(c=>(c.date||'')===date);
         html += `<div class="time-subheader"><span class="pill">${date ? formatDateLabel(date) : '日期待定'}</span><span class="sub-line"></span></div>`;
-        html += `<div class="grid">${dateCourses.map(courseCardHtml).join('')}</div>`;
+        html += `<div class="grid">${dateCourses.map(c=>courseCardHtml(c, courseIndexMap.get(c.id) || 0)).join('')}</div>`;
       });
     }else{
-      html += `<div class="grid">${courses.map(courseCardHtml).join('')}</div>`;
+      html += `<div class="grid">${courses.map(c=>courseCardHtml(c, courseIndexMap.get(c.id) || 0)).join('')}</div>`;
     }
     html += `</div></div>`;
   });
