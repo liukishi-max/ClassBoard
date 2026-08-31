@@ -788,6 +788,23 @@
     text-align:center;
   }
 
+
+  .teacher-share-hint{
+    margin:10px 0 14px;
+    padding:10px 12px;
+    border-radius:10px;
+    background:#F4F6F4;
+    border:1px solid rgba(31,42,36,.10);
+    color:var(--ink-soft);
+    font-size:12.5px;
+    line-height:1.55;
+    text-align:center;
+  }
+  .teacher-share-hint strong{
+    color:var(--ink);
+    font-weight:700;
+  }
+
 </style>
 </head>
 <body>
@@ -979,6 +996,40 @@ function teacherShareCopy(teacher){
     courses
   };
 }
+
+function renderTeacherShareHint(){
+  let hint = document.getElementById('teacherShareHint');
+  if(!SHARE_TEACHER_ID){
+    if(hint) hint.remove();
+    return;
+  }
+  const teacher = state.teachers.find(t=>t.id===SHARE_TEACHER_ID);
+  if(!teacher) return;
+
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'teacherShareHint';
+    hint.className = 'teacher-share-hint';
+
+    const host =
+      document.querySelector('.container') ||
+      document.querySelector('main') ||
+      document.body;
+
+    const groups = document.getElementById('teacherGroups') ||
+      document.querySelector('.teacher-groups') ||
+      document.querySelector('.groups');
+
+    if(groups && groups.parentNode){
+      groups.parentNode.insertBefore(hint, groups);
+    }else{
+      host.prepend(hint);
+    }
+  }
+
+  hint.innerHTML = `当前是 <strong>${escapeHtml(teacher.name)} 老师课程板</strong>。如需转发给微信好友或群，请点击微信右上角“…”进行分享。`;
+}
+
 function renderBrand(){
   const org = state.settings.orgName || "ClassBoard";
   document.getElementById('brandTitle').textContent = org;
@@ -998,6 +1049,7 @@ function renderBrand(){
     setMetaContent('meta[name="twitter:title"]', `${org} · 课程报名`);
     setMetaContent('meta[name="twitter:description"]', `查看 ${org} 最新课程安排与报名信息。`);
   }
+  renderTeacherShareHint();
 }
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
@@ -1226,7 +1278,7 @@ function renderBoard(){
         <div class="teacher-header-top">
           <span class="teacher-avatar-lg" aria-hidden="true">${escapeHtml(initials(teacherLabel))}</span>
           <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
-          ${teacher ? `<button class="teacher-share-btn" onclick="shareTeacherCourses('${key}')" title="只分享这位老师的课程"><span aria-hidden="true">↗</span><span>分享课程</span></button>` : ''}
+          ${teacher ? `<button class="teacher-share-btn" onclick="enterTeacherBoard('${key}')" title="只分享这位老师的课程"><span aria-hidden="true">↗</span><span>分享课程</span></button>` : ''}
         </div>${bioHtml}${feeHtml}
       </div>
       <div class="teacher-group-body">`;
@@ -1288,7 +1340,7 @@ function openTeacherShareModal(teacherId){
     : '<div class="teacher-share-course">暂无开放课程</div>';
 
   openModal(`
-    <h2>分享老师课程</h2>
+    <h2>老师课程链接</h2>
     <p class="sub">老师专属链接会使用“机构名称 · 老师课程”作为标题。复制后可直接粘贴到微信好友或群。</p>
     <div class="teacher-share-panel">
       <div class="teacher-share-summary">
@@ -1329,6 +1381,12 @@ function openTeacherShareModal(teacherId){
       });
     }
   }, 20);
+}
+
+
+function enterTeacherBoard(teacherId){
+  const url = buildTeacherShareUrl(teacherId);
+  window.location.href = url;
 }
 
 async function shareTeacherCourses(teacherId){
