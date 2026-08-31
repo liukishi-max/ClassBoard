@@ -198,6 +198,13 @@
     flex-shrink:0; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700;
     color:var(--status-color); background:var(--status-bg, var(--moss-tint));
   }
+  .course-signup-btn{
+    flex-shrink:0; min-height:40px; padding:8px 14px; border:0; border-radius:999px;
+    background:var(--moss); color:#fff; font-size:13px; font-weight:700; white-space:nowrap;
+    box-shadow:0 2px 6px rgba(44,76,59,.14);
+  }
+  .course-signup-btn:hover{ background:var(--moss-dark); }
+  .course-signup-btn:disabled{ background:var(--full-tint); color:var(--full); box-shadow:none; cursor:not-allowed; }
   .core-meta{ margin-top:13px; display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
   .core-time{ min-width:0; }
   .core-time-label{ display:block; color:var(--slate); font-size:11px; font-weight:600; margin-bottom:2px; }
@@ -230,6 +237,7 @@
   .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; margin-bottom:1px; }
   .roster-count{ color:var(--slate); font-size:12px; font-weight:600; }
   .card > .card-actions{ padding:0 20px 20px 24px; margin-top:0; }
+  .card > .card-actions:empty{ display:none; }
 
   /* 信息方块：上课时间 / 年级 / 剩余名额 — 各自独立浅色区块，参考报名系统的工整卡片风格 */
   .info-grid{
@@ -751,9 +759,9 @@ function courseCardHtml(course){
     }).join('');
   }
 
-  const actionBtn = meta.status==='full'
-    ? `<button class="btn btn-ghost" disabled>名额已满</button>`
-    : `<button class="btn btn-primary" onclick="openSignupForm('${course.id}')">我要报名</button>`;
+  const topSignupBtn = meta.status==='full'
+    ? `<button class="course-signup-btn" disabled>名额已满</button>`
+    : `<button class="course-signup-btn" onclick="event.stopPropagation(); openSignupForm('${course.id}')">我要报名</button>`;
 
   const adminBtns = isAdmin ? `
       <button class="btn btn-ghost btn-sm" onclick="openCourseForm('${course.id}')">编辑</button>
@@ -761,7 +769,6 @@ function courseCardHtml(course){
       <button class="btn btn-danger btn-sm" onclick="deleteCourse('${course.id}')">删除</button>
   ` : '';
 
-  const statusText = meta.status==='full' ? '已满' : meta.status==='low' ? `仅剩 ${meta.remaining} 名` : '开放报名';
   const seatText = meta.status==='full' ? `已报名 ${meta.enrolled}/${meta.cap}` : `剩余 ${meta.remaining}/${meta.cap}`;
 
   return `
@@ -772,7 +779,7 @@ function courseCardHtml(course){
           <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
           <span class="course-teacher-label">授课老师 · ${teacher ? escapeHtml(teacher.name) : '未指定老师'}</span>
         </div>
-        <span class="status-badge">${statusText}</span>
+        ${topSignupBtn}
       </div>
       <div class="core-meta">
         <div class="core-time">
@@ -785,7 +792,7 @@ function courseCardHtml(course){
     </div>
 
     <section class="roster-preview">
-      <h4 class="detail-section-title"><span>报名名单</span><span class="roster-count">${enrolledList.length}/${meta.cap} 人</span></h4>
+      <h4 class="detail-section-title"><span>报名名单</span><span class="roster-count">已报名 ${enrolledList.length} 人</span></h4>
       <div class="roster" id="roster-${course.id}">${rosterRows}</div>
     </section>
 
@@ -803,7 +810,7 @@ function courseCardHtml(course){
         <p class="course-description">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
       </section>
     </div>
-    <div class="card-actions">${actionBtn}${adminBtns}</div>
+    <div class="card-actions">${adminBtns}</div>
   </article>`;
 }
 
