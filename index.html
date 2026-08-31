@@ -313,6 +313,16 @@
   .teacher-header-bio .desc-toggle{ color:rgba(255,255,255,0.85); }
   .teacher-header-bio .desc-toggle:hover{ color:#fff; }
 
+  /* 收费标准：不再逐个课程重复展示，同一位老师的收费统一显示在老师头卡里一次 */
+  .teacher-header-fee{
+    display:flex; align-items:flex-start; gap:8px; margin-top:8px; padding-left:47px;
+  }
+  .teacher-header-fee-icon{ flex-shrink:0; font-size:13px; line-height:1.6; }
+  .teacher-header-fee-text{
+    flex:1; margin:0; font-size:13px; color:rgba(255,255,255,0.78); line-height:1.6;
+  }
+  .teacher-header-fee-text b{ color:#fff; font-weight:700; }
+
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
   .seat-dot.sm{ width:6px; height:6px; }
@@ -327,11 +337,14 @@
     font-size:12.5px; font-weight:700; color:var(--slate); background:none; border:none;
     padding:4px 0 0; text-align:left; display:flex; align-items:center; gap:5px;
   }
+  .roster-label{
+    font-size:12.5px; font-weight:700; color:var(--slate); padding:4px 0 0;
+    display:flex; align-items:center; gap:5px;
+  }
   .roster{
-    display:none; border-top:1px dashed var(--line); margin-top:4px; padding-top:10px;
+    display:flex; border-top:1px dashed var(--line); margin-top:4px; padding-top:10px;
     flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;
   }
-  .roster.open{ display:flex; }
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
     display:flex; align-items:center; justify-content:space-between; font-size:13px;
@@ -625,16 +638,9 @@ function seatDotsHtml(meta, compact){
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
-  const feePlan = state.feePlans.find(p=>p.id===course.feePlanId);
-  const feePlanFee = feePlan ? (feePlan.text || feePlan.name || '').trim() : '';
-  const teacherFee = feePlanFee || (teacher && teacher.feeNotice || '').trim();
   const accentColor = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
-  const rosterOpen = !!openRosters[course.id];
   const descExpanded = !!expandedDescs[course.id];
-  const feeExpanded = !!expandedFees[course.id];
-  const feeLines = teacherFee ? teacherFee.split(/\r?\n/).map(l=>l.trim()).filter(Boolean) : [];
-  const feeLinesShown = feeExpanded ? feeLines : feeLines.slice(0,3);
 
   let rosterRows = '';
   if(enrolledList.length===0){
@@ -709,19 +715,8 @@ function courseCardHtml(course){
       </div>
     </div>
 
-    <div class="desc-block" style="padding:9px 13px;">
-      <div class="desc-header" style="margin-bottom:${feeLines.length ? '8px' : '0'};">
-        <span class="desc-avatar">💰</span>
-        <span class="desc-label">收费标准</span>
-        ${feeLines.length>3 ? `<button class="desc-toggle visible" onclick="toggleFee('${course.id}')"><span class="label">${feeExpanded?'收起':'查看全部'}</span><span class="chev">${feeExpanded?'⌄':'›'}</span></button>` : ''}
-      </div>
-      ${feeLines.length
-        ? `<div class="fee-list">${feeLinesShown.map(l=>`<div class="fee-line">${escapeHtml(l)}</div>`).join('')}</div>`
-        : `<span style="font-size:12px;color:var(--slate);">机构还没有设置收费标准</span>`}
-    </div>
-
-    <button class="roster-toggle" onclick="toggleRoster('${course.id}')">${rosterOpen?'收起':'查看'}报名名单（${enrolledList.length}人） ${rosterOpen?'▲':'▼'}</button>
-    <div class="roster ${rosterOpen?'open':''}" id="roster-${course.id}">${rosterRows}</div>
+    <div class="roster-label">📋 报名名单（${enrolledList.length}人）</div>
+    <div class="roster" id="roster-${course.id}">${rosterRows}</div>
     <div class="card-actions">${actionBtn}${adminBtns}</div>
   </div>`;
 }
@@ -786,12 +781,29 @@ function renderBoard(){
           <button class="desc-toggle visible" onclick="showTeacherBio('${key}')"><span class="label">简介</span><span class="chev">›</span></button>
         </div>` : '';
 
+    // 收费标准同一位老师名下所有课程都一样，不再逐张课程卡片重复展示，
+    // 统一取老师本人设置的收费（找不到时退回该老师名下第一门课程绑定的收费方案），在老师头卡里显示一次
+    let feeSourceText = (teacher && teacher.feeNotice || '').trim();
+    if(!feeSourceText){
+      const courseWithPlan = courses.find(c=>c.feePlanId);
+      if(courseWithPlan){
+        const fp = state.feePlans.find(p=>p.id===courseWithPlan.feePlanId);
+        if(fp) feeSourceText = (fp.text || fp.name || '').trim();
+      }
+    }
+    const feeLines = feeSourceText ? feeSourceText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean) : [];
+    const feeHtml = (teacher || feeLines.length) ? `
+        <div class="teacher-header-fee">
+          <span class="teacher-header-fee-icon">💰</span>
+          <p class="teacher-header-fee-text">${feeLines.length ? `<b>收费标准：</b>${feeLines.map(l=>escapeHtml(l)).join('　·　')}` : '老师还没有设置收费标准'}</p>
+        </div>` : '';
+
     html += `<div class="teacher-group">
       <div class="teacher-header-card">
         <div class="teacher-header-top">
           <span class="teacher-avatar-lg">🍎</span>
           <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
-        </div>${bioHtml}
+        </div>${bioHtml}${feeHtml}
       </div>
       <div class="teacher-group-body">`;
 
