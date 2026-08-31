@@ -223,6 +223,10 @@
   .detail-section-title{ margin:0 0 7px; font-size:13px; font-weight:700; color:var(--ink); }
   .course-description{ margin:0; color:var(--ink-soft); font-size:13px; line-height:1.7; white-space:pre-wrap; }
   .roster-preview{ padding:10px 20px 9px 24px; }
+  .roster-preview::before{
+    content:''; display:block; width:40px; border-top:1px dashed rgba(63,107,82,.20);
+    margin:0 0 9px;
+  }
   .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
   .roster-count{ color:var(--slate); font-size:12px; font-weight:600; }
   .card > .card-actions{ padding:0 20px 20px 24px; margin-top:0; }
