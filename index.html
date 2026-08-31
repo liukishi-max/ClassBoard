@@ -55,6 +55,9 @@
     --moss-tint:#E3EDE5;
     --amber:#C98A2C;
     --amber-tint:#FBF1DF;
+    /* 名额紧张：低饱和灰绿色，轻微提醒但不制造焦虑 */
+    --low:#748174;
+    --low-tint:#EEF1EC;
     --full:#858982;
     --full-tint:#F0F0EC;
     --brick:#81524C;
@@ -197,9 +200,9 @@
   .core-clock{ display:block; color:var(--ink-soft); font-size:13px; font-weight:500; margin-top:1px; }
   .core-seat{ color:var(--status-color); font-size:13px; font-weight:700; white-space:nowrap; }
   .details-trigger{
-    width:100%; border:0; border-top:1px solid rgba(220,213,192,.72); background:#fff;
+    width:calc(100% - 40px); border:0; border-radius:9px; background:rgba(227,237,229,.58);
     color:var(--moss-dark); display:flex; align-items:center; justify-content:space-between;
-    padding:11px 20px 11px 24px; font-size:13px; font-weight:700; text-align:left;
+    margin:4px 20px 12px; padding:10px 12px; font-size:13px; font-weight:700; text-align:left;
   }
   .details-trigger:hover{ background:rgba(227,237,229,.45); }
   .details-trigger .chev{ font-size:18px; line-height:1; transition:transform .2s ease; }
@@ -214,8 +217,8 @@
   .detail-section{ padding-top:14px; }
   .detail-section-title{ margin:0 0 7px; font-size:13px; font-weight:700; color:var(--ink); }
   .course-description{ margin:0; color:var(--ink-soft); font-size:13px; line-height:1.7; white-space:pre-wrap; }
-  .roster-preview{ padding:13px 20px 12px 24px; border-top:1px solid rgba(220,213,192,.72); }
-  .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; }
+  .roster-preview{ padding:10px 20px 9px 24px; }
+  .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
   .roster-count{ color:var(--slate); font-size:12px; font-weight:600; }
   .card > .card-actions{ padding:0 20px 20px 24px; margin-top:0; }
 
@@ -385,13 +388,13 @@
     display:flex; align-items:center; gap:5px;
   }
   .roster{
-    display:flex; border-top:1px solid var(--line); margin-top:4px;
+    display:flex; border-top:0; margin-top:0;
     flex-direction:column; gap:0; max-height:220px; overflow-y:auto;
   }
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
-    display:flex; align-items:center; justify-content:space-between; font-size:13px;
-    background:transparent; border-radius:0; border-bottom:1px solid rgba(220,213,192,.65); padding:9px 2px; gap:8px;
+    display:flex; align-items:center; justify-content:space-between; font-size:13px; line-height:1.45;
+    background:transparent; border-radius:0; border-bottom:0; padding:2px 2px; gap:8px;
   }
   .roster-name{ font-weight:600; }
   .roster-name-input{
@@ -469,8 +472,8 @@
     .grid{ gap:12px; }
     .course-summary{ padding:18px 16px 14px 21px; }
     .course-details{ padding:3px 16px 18px 21px; }
-    .details-trigger{ padding:11px 16px 11px 21px; }
-    .roster-preview{ padding:13px 16px 12px 21px; }
+    .details-trigger{ width:calc(100% - 32px); margin:4px 16px 12px; padding:10px 11px; }
+    .roster-preview{ padding:10px 16px 9px 21px; }
     .card > .card-actions{ padding:0 16px 18px 21px; }
   }
 </style>
@@ -681,7 +684,7 @@ function seatMeta(course){
   return {enrolled, cap, remaining: Math.max(0,remaining), status};
 }
 function seatDotsHtml(meta, compact){
-  const colorVar = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
+  const colorVar = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--low)' : 'var(--moss)';
   if(meta.cap > 30){
     const pct = Math.min(100, Math.round((meta.enrolled/meta.cap)*100));
     return `<div style="width:${compact?'100%':'120px'};height:${compact?'5px':'8px'};border-radius:5px;background:var(--line);overflow:hidden;">
@@ -697,8 +700,8 @@ function seatDotsHtml(meta, compact){
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
-  const accentColor = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
-  const statusBg = meta.status==='full' ? 'var(--full-tint)' : meta.status==='low' ? 'var(--amber-tint)' : 'var(--moss-tint)';
+  const accentColor = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--low)' : 'var(--moss)';
+  const statusBg = meta.status==='full' ? 'var(--full-tint)' : meta.status==='low' ? 'var(--low-tint)' : 'var(--moss-tint)';
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
   const detailsExpanded = !!expandedDescs[course.id];
 
