@@ -199,24 +199,41 @@
     color:var(--status-color); background:var(--status-bg, var(--moss-tint));
   }
   .course-signup-btn{
-    flex-shrink:0; min-height:40px; padding:8px 14px; border:0; border-radius:999px;
+    flex-shrink:0; min-height:38px; padding:7px 14px; border:0; border-radius:10px;
     background:var(--moss); color:#fff; font-size:13px; font-weight:700; white-space:nowrap;
     box-shadow:0 2px 6px rgba(44,76,59,.14);
   }
   .course-signup-btn:hover{ background:var(--moss-dark); }
   .course-signup-btn:disabled{ background:var(--full-tint); color:var(--full); box-shadow:none; cursor:not-allowed; }
-  .core-meta{ margin-top:13px; display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
-  .core-time{ min-width:0; }
-  .core-time-label{ display:block; color:var(--ink); font-size:13px; font-weight:700; line-height:1.35; margin-bottom:3px; }
-  .core-date{ display:block; font-size:13px; font-weight:400; line-height:1.45; }
-  .core-clock{ display:block; color:var(--ink-soft); font-size:13px; font-weight:400; line-height:1.45; margin-top:0; }
-  .core-seat{ color:var(--status-color); font-size:13px; font-weight:500; white-space:nowrap; }
-  .details-trigger{
-    width:calc(100% - 44px); border:0; border-top:1px solid rgba(220,213,192,.72); border-radius:0; background:var(--card);
-    color:var(--moss-dark); display:flex; align-items:center; justify-content:space-between;
-    margin:6px 20px 0 24px; padding:10px 0; font-size:13px; font-weight:700; text-align:left;
+  /* 课程卡统一文字系统：区域标题统一；正文/数字统一，颜色保持各自语义 */
+  .top-signup-stack{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+  .top-seat-note{ color:var(--slate); font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; white-space:nowrap; }
+
+  /* 上课时间：作为独立区域，使用极浅暖底色；不加圆角，降低“卡片套卡片”感 */
+  .core-meta{
+    /* 与正文左右边缘完全对齐：底色、分隔线、文字使用同一宽度 */
+    margin:13px 0 -16px 0; padding:11px 0 12px;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:14px;
+    background:rgba(247,244,236,.55);
   }
-  .details-trigger:hover{ background:rgba(247,244,236,.45); }
+  .core-time{ min-width:0; }
+  .core-time-label{ display:block; color:var(--moss-dark); font-size:13px; font-weight:700; line-height:1.35; letter-spacing:.05px; margin-bottom:3px; }
+  .core-date, .core-clock{ font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; }
+  .core-date{ display:block; color:var(--ink); }
+  .core-clock{ display:block; color:var(--ink-soft); margin-top:0; }
+  .core-seat{ color:var(--status-color); font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; white-space:nowrap; }
+
+  /* 查看课程详情：与其它区域标题统一字号/字重/颜色；背景采用交替浅底色 */
+  .details-trigger{
+    /* 不再 width:100% 撑到卡片边缘；和上方正文/底色块同宽，避免第三块“出框” */
+    position:relative; width:auto; border:0; border-top:1px solid rgba(220,213,192,.72); border-radius:0;
+    background:rgba(247,244,236,.55); color:var(--moss-dark);
+    display:flex; align-items:center; justify-content:space-between;
+    margin:0 20px 0 24px; padding:11px 0;
+    font-size:13px; font-weight:700; line-height:1.35; letter-spacing:.05px; text-align:left;
+  }
+  .details-trigger::before{ content:none; }
+  .details-trigger:hover{ background:rgba(247,244,236,.72); }
   .details-trigger .chev{ font-size:18px; line-height:1; transition:transform .2s ease; }
   .details-trigger.open .chev{ transform:rotate(90deg); }
   .course-details{ display:none; padding:4px 20px 20px 24px; }
@@ -227,15 +244,21 @@
   .detail-meta-label{ color:var(--slate); font-size:11px; }
   .detail-meta-value{ color:var(--ink); font-size:13px; font-weight:600; }
   .detail-section{ padding-top:14px; }
-  .detail-section-title{ margin:0 0 7px; font-size:13px; font-weight:700; line-height:1.35; color:var(--ink); }
-  .course-description{ margin:0; color:var(--ink-soft); font-size:13px; line-height:1.7; white-space:pre-wrap; }
-  .roster-preview{ padding:8px 20px 8px 24px; }
-  .roster-preview::before{
-    content:''; display:block; width:100%; border-top:1px solid rgba(220,213,192,.72);
-    margin:0 0 9px;
+  .detail-section-title{ margin:0 0 7px; font-size:13px; font-weight:700; line-height:1.35; letter-spacing:.05px; color:var(--moss-dark); }
+  .course-description{ margin:0; color:var(--ink-soft); font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; white-space:pre-wrap; }
+
+  /* 报名名单：白底，与“上课时间 / 查看课程详情”的浅底交替 */
+  .roster-preview{
+    /* 报名区也与正文宽度一致；横线直接成为底色块上边界，避免“线和底色错位” */
+    margin:0 20px 0 24px; padding:10px 0; background:var(--card);
+    border-top:1px solid rgba(220,213,192,.72);
   }
-  .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; margin-bottom:1px; font-weight:700; }
-  .roster-count{ color:var(--slate); font-size:13px; font-weight:400; }
+  .roster-preview::before{ content:none; }
+  .roster-preview .detail-section-title{
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;
+    font-size:13px; font-weight:700; line-height:1.35; letter-spacing:.05px; color:var(--moss-dark);
+  }
+  .roster-count{ color:var(--slate); font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; }
   .card > .card-actions{ padding:0 20px 20px 24px; margin-top:0; }
   .card > .card-actions:empty{ display:none; padding:0; margin:0; }
   .card > .details-trigger:last-of-type{ margin-bottom:0; }
@@ -411,10 +434,11 @@
   }
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
-    display:flex; align-items:center; justify-content:space-between; font-size:13px; line-height:1.3;
-    background:transparent; border-radius:0; border-bottom:0; padding:1px 2px; gap:8px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px;
+    background:transparent; border-radius:0; border-bottom:0; padding:0 2px; gap:8px;
   }
-  .roster-name{ font-weight:400; }
+  .roster-name{ font-size:13px; font-weight:400; line-height:1.45; letter-spacing:.05px; }
   .roster-name-input{
     border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13px; font-weight:600;
     font-family:inherit; background:#fff; width:110px;
@@ -498,13 +522,95 @@
     .teacher-group-body .card{ margin-left:0; border-left:0; border-radius:0 var(--radius) var(--radius) 0; }
     .grid{ gap:12px; }
     .course-summary{ padding:18px 16px 14px 21px; }
+    .core-meta{ margin:13px 0 -14px 0; padding:11px 0 12px; }
     .course-details{ padding:3px 16px 18px 21px; }
-    .details-trigger{ width:100%; margin:4px 0 0; padding:10px 16px 10px 21px; }
-    .roster-preview{ padding:8px 16px 8px 21px; }
+    .details-trigger{ width:auto; margin:0 16px 0 21px; padding:11px 0; }
+    .details-trigger::before{ content:none; }
+    .roster-preview{ margin:0 16px 0 21px; padding:10px 0; }
     .card > .card-actions{ padding:0 16px 18px 21px; }
   }
   .field input[type="checkbox"]{ padding:0; border:0; background:transparent; }
   @media (max-width:520px){ .card > .card-actions:empty{display:none !important;padding:0 !important;margin:0 !important;} }
+
+  /* 2026-08-31 final polish: full-width section backgrounds stop at the 5px course accent; unified typography rhythm */
+  .core-time-label,
+  .roster-preview .detail-section-title,
+  .details-trigger{
+    font-size:13px; font-weight:700; line-height:1.4; letter-spacing:0;
+  }
+  .core-date, .core-clock, .top-seat-note, .roster-count, .roster-row, .course-description{
+    font-size:13px; font-weight:400; line-height:1.45; letter-spacing:0;
+  }
+  .core-time-label{ margin-bottom:2px; }
+  .roster-preview .detail-section-title{ margin-bottom:2px; }
+  .roster-row{ padding:1px 0; }
+
+  /* Section fills run to the card's right edge and to the green accent on the left, never across it. */
+  .core-meta{
+    margin:13px -20px -16px -19px;
+    padding:11px 20px 12px 19px;
+  }
+  .roster-preview{
+    margin:0 0 0 5px;
+    padding:10px 20px 10px 19px;
+    background:var(--card);
+    border-top:1px solid rgba(220,213,192,.72);
+  }
+  .details-trigger{
+    width:calc(100% - 5px);
+    margin:0 0 0 5px;
+    padding:11px 20px 11px 19px;
+    background:rgba(247,244,236,.55);
+    border-top:1px solid rgba(220,213,192,.72);
+  }
+
+  @media (max-width:520px){
+    .core-meta{ margin:13px -16px -14px -16px; padding:11px 16px 12px 16px; }
+    .roster-preview{ margin:0 0 0 5px; padding:10px 16px 10px 16px; }
+    .details-trigger{ width:calc(100% - 5px); margin:0 0 0 5px; padding:11px 16px; }
+  }
+
+
+  /* 2026-08-31 typography micro-polish: identical section-title metrics and body rhythm */
+  :root{
+    --section-title-size:13px;
+    --section-title-line:1.4;
+    --body-text-size:13px;
+    --body-text-line:1.45;
+    --section-title-gap:3px;
+  }
+
+  /* 三个板块标题使用完全相同的字型参数，避免 span / h4 / button 的浏览器默认差异 */
+  .core-time-label,
+  .roster-preview .detail-section-title,
+  .details-trigger{
+    font-family:'Noto Sans SC', system-ui, -apple-system, sans-serif !important;
+    font-size:var(--section-title-size) !important;
+    font-weight:700 !important;
+    line-height:var(--section-title-line) !important;
+    letter-spacing:0 !important;
+    font-kerning:normal;
+  }
+
+  /* 标题到正文的垂直距离一致 */
+  .core-time-label{ margin:0 0 var(--section-title-gap) !important; }
+  .roster-preview .detail-section-title{ margin:0 0 var(--section-title-gap) !important; }
+
+  /* 正文、人数、剩余数量统一字号与行高；颜色继续沿用原设置 */
+  .core-date, .core-clock, .top-seat-note, .roster-count, .roster-row, .course-description{
+    font-family:'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    font-size:var(--body-text-size) !important;
+    font-weight:400 !important;
+    line-height:var(--body-text-line) !important;
+    letter-spacing:0 !important;
+  }
+  .core-date, .core-clock{ margin:0 !important; }
+  .roster{ gap:0 !important; }
+  .roster-row{ padding:0 !important; margin:0 !important; }
+
+  /* 教师辅助行也统一为稳定字距，不改变其较小字号层级 */
+  .course-teacher-label{ letter-spacing:0 !important; line-height:1.3; }
+  .top-signup-stack{ gap:3px; }
 </style>
 </head>
 <body>
@@ -781,7 +887,10 @@ function courseCardHtml(course){
           <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
           <span class="course-teacher-label">授课老师 · ${teacher ? escapeHtml(teacher.name) : '未指定老师'}</span>
         </div>
-        ${topSignupBtn}
+        <div class="top-signup-stack">
+          ${topSignupBtn}
+          <span class="top-seat-note">${seatText}</span>
+        </div>
       </div>
       <div class="core-meta">
         <div class="core-time">
@@ -789,7 +898,6 @@ function courseCardHtml(course){
           <span class="core-date">${course.date? formatDateLabel(course.date) : '日期待定'}</span>
           <span class="core-clock">${formatTimeRange(course.startTime, course.endTime) || '时间待定'}</span>
         </div>
-        <span class="core-seat">${seatText}</span>
       </div>
     </div>
 
