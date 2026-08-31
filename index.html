@@ -6,8 +6,8 @@
   <title>ClassBoard · 课程板</title>
 
   <!-- 微信分享预览卡片配置  -->
-  <meta property="og:title" content="ClassBoard · 课程报名与管理板">
-  <meta property="og:description" content="发布课程、在线报名、收款跟踪，一个链接全部搞定！点击查看最新课程安排。">
+  <meta property="og:title" content="课程报名">
+  <meta property="og:description" content="查看机构老师课程安排与报名信息。">
   <meta property="og:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&auto=format&fit=crop&q=80">
   <meta property="og:type" content="website">
 
@@ -636,6 +636,74 @@
   /* 教师辅助行也统一为稳定字距，不改变其较小字号层级 */
   .course-teacher-label{ letter-spacing:0 !important; line-height:1.3; }
   .top-signup-stack{ gap:3px; }
+
+  /* 单老师分享：桌面端不再调用系统分享面板，避免只出现 Nearby Share 等无关目标。
+     改为明确的微信友好分享弹窗：机构名 + 老师 + 课程名 + 专属链接 + 二维码。 */
+  .teacher-share-panel{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .teacher-share-summary{
+    padding:14px 15px;
+    border-radius:12px;
+    background:#F6F7F5;
+    border:1px solid rgba(31,42,36,.08);
+  }
+  .teacher-share-org{
+    font-size:12px;
+    color:var(--slate);
+    margin-bottom:3px;
+  }
+  .teacher-share-title{
+    font-size:17px;
+    font-weight:800;
+    color:var(--ink);
+    line-height:1.4;
+  }
+  .teacher-share-courses{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    color:var(--ink-soft);
+    font-size:13px;
+    line-height:1.45;
+  }
+  .teacher-share-course{
+    display:flex;
+    gap:7px;
+    align-items:flex-start;
+  }
+  .teacher-share-course::before{
+    content:"·";
+    flex-shrink:0;
+    font-weight:800;
+    color:var(--moss);
+  }
+  .teacher-share-linkbox{
+    display:flex;
+    justify-content:center;
+  }
+  .teacher-share-copy-btn{
+    width:100%;
+    min-height:42px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:700;
+  }
+  .teacher-share-qr{
+    display:flex;
+    justify-content:center;
+    padding:10px 0 2px;
+  }
+  .teacher-share-tip{
+    color:var(--slate);
+    font-size:12.5px;
+    line-height:1.55;
+    text-align:center;
+  }
+
 </style>
 </head>
 <body>
@@ -807,12 +875,39 @@ function enrolledOf(courseId){
   return state.signups.filter(s=>s.courseId===courseId);
 }
 
+function setMetaContent(selector, content){
+  const el = document.querySelector(selector);
+  if(el) el.setAttribute('content', content);
+}
+function teacherShareCopy(teacher){
+  const org = state.settings.orgName || 'ClassBoard';
+  const courses = state.courses
+    .filter(c=>c.teacherId===teacher.id)
+    .slice()
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||'') || (a.startTime||'').localeCompare(b.startTime||''));
+  const names = courses.map(c=>c.name).filter(Boolean);
+  const courseText = names.length ? names.join('、') : '课程安排';
+  return {
+    title: `${org} · ${teacher.name}老师课程`,
+    text: `${org}｜${teacher.name}老师课程：${courseText}`,
+    courses
+  };
+}
 function renderBrand(){
   const org = state.settings.orgName || "ClassBoard";
   document.getElementById('brandTitle').textContent = org;
   document.getElementById('brandMark').textContent = org.charAt(0).toUpperCase();
   const sharedTeacher = SHARE_TEACHER_ID ? state.teachers.find(t=>t.id===SHARE_TEACHER_ID) : null;
-  document.title = sharedTeacher ? `${sharedTeacher.name} · ${org}课程` : `${org} · 课程板`;
+  if(sharedTeacher){
+    const copy = teacherShareCopy(sharedTeacher);
+    document.title = copy.title;
+    setMetaContent('meta[property="og:title"]', copy.title);
+    setMetaContent('meta[property="og:description"]', copy.text);
+  }else{
+    document.title = `${org} · 课程板`;
+    setMetaContent('meta[property="og:title"]', `${org} · 课程报名`);
+    setMetaContent('meta[property="og:description"]', `查看 ${org} 最新课程安排与报名信息。`);
+  }
 }
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
@@ -1065,43 +1160,109 @@ function renderBoard(){
   el.innerHTML = html;
 }
 
+function buildTeacherShareUrl(teacherId){
+  const url = new URL(window.location.href);
+  url.searchParams.set('teacher', teacherId);
+  if(ORG_ID && ORG_ID!=='main_data') url.searchParams.set('org', ORG_ID);
+  return url.toString();
+}
+
+async function copyTeacherShareLink(teacherId){
+  const teacher = state.teachers.find(t=>t.id===teacherId);
+  if(!teacher){ toast('没有找到这位老师', true); return; }
+  const shareUrl = buildTeacherShareUrl(teacherId);
+  try{
+    await navigator.clipboard.writeText(shareUrl);
+    toast(`已复制 ${teacher.name} 老师课程链接`);
+  }catch(err){
+    const ta = document.createElement('textarea');
+    ta.value = shareUrl;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(ok ? `已复制 ${teacher.name} 老师课程链接` : '复制失败，请手动复制网址', !ok);
+  }
+}
+
+function openTeacherShareModal(teacherId){
+  const teacher = state.teachers.find(t=>t.id===teacherId);
+  if(!teacher){ toast('没有找到这位老师', true); return; }
+
+  const shareUrl = buildTeacherShareUrl(teacherId);
+  const copy = teacherShareCopy(teacher);
+  const courseRows = copy.courses.length
+    ? copy.courses.map(c=>`<div class="teacher-share-course">${escapeHtml(c.name || '未命名课程')}</div>`).join('')
+    : '<div class="teacher-share-course">暂无开放课程</div>';
+
+  openModal(`
+    <h2>分享老师课程</h2>
+    <p class="sub">分享出去的内容以机构名称和老师课程为主，不再使用原来的功能说明文字。</p>
+    <div class="teacher-share-panel">
+      <div class="teacher-share-summary">
+        <div class="teacher-share-org">${escapeHtml(state.settings.orgName || 'ClassBoard')}</div>
+        <div class="teacher-share-title">${escapeHtml(teacher.name)} 老师课程</div>
+        <div class="teacher-share-courses">${courseRows}</div>
+      </div>
+
+      <div class="teacher-share-linkbox">
+        <button class="btn btn-primary teacher-share-copy-btn" onclick="copyTeacherShareLink('${teacherId}')">
+          复制老师课程链接
+        </button>
+      </div>
+
+      <div class="teacher-share-qr"><div id="teacherShareQr"></div></div>
+      <div class="teacher-share-tip">
+        电脑微信：点击上方按钮复制后，直接粘贴到微信群。<br>
+        手机微信：也可以扫码打开后，再从微信右上角转发到群。
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+      <button class="btn btn-primary" onclick="openPosterModal()">生成分享海报</button>
+    </div>
+  `);
+
+  setTimeout(()=>{
+    const qrEl = document.getElementById('teacherShareQr');
+    if(qrEl && window.QRCode){
+      qrEl.innerHTML = '';
+      new QRCode(qrEl, {
+        text: shareUrl,
+        width: 150,
+        height: 150,
+        colorDark: '#1F2A24',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+  }, 20);
+}
+
 async function shareTeacherCourses(teacherId){
   const teacher = state.teachers.find(t=>t.id===teacherId);
   if(!teacher){ toast('没有找到这位老师', true); return; }
 
-  const url = new URL(window.location.href);
-  url.searchParams.set('teacher', teacherId);
-  // org 参数沿用当前机构；分享链接永远指向家长可打开的同一页面，只过滤到该老师。
-  if(ORG_ID && ORG_ID!=='main_data') url.searchParams.set('org', ORG_ID);
+  const shareUrl = buildTeacherShareUrl(teacherId);
+  const copy = teacherShareCopy(teacher);
+  const shareData = { title: copy.title, text: copy.text, url: shareUrl };
 
-  const orgName = state.settings.orgName || 'ClassBoard';
-  const shareData = {
-    title: `${teacher.name} · ${orgName}课程`,
-    text: `查看 ${teacher.name} 的课程安排与报名信息`,
-    url: url.toString()
-  };
-
-  if(navigator.share){
+  // 桌面 Chrome/Windows 的 Web Share 往往只弹 Nearby Share，
+  // 不能保证出现微信，更不能直接指定某个微信群。因此桌面端直接用专属分享弹窗。
+  const mobile = isMobileDevice();
+  if(mobile && navigator.share){
     try{
       await navigator.share(shareData);
       return;
     }catch(err){
       if(err && err.name==='AbortError') return;
+      // 系统分享失败时继续进入微信友好的自定义弹窗。
     }
   }
 
-  try{
-    await navigator.clipboard.writeText(url.toString());
-    toast(`已复制 ${teacher.name} 的专属课程链接`);
-  }catch(err){
-    const ta = document.createElement('textarea');
-    ta.value = url.toString();
-    ta.style.position='fixed'; ta.style.opacity='0';
-    document.body.appendChild(ta); ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    toast(ok ? `已复制 ${teacher.name} 的专属课程链接` : '复制失败，请手动复制网址', !ok);
-  }
+  openTeacherShareModal(teacherId);
 }
 
 function toggleDesc(courseId){
