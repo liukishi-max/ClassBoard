@@ -275,29 +275,43 @@
     background:var(--amber);
   }
 
-  .teacher-header-card{
-    background: rgba(63,107,82,0.07); border: 1.5px solid rgba(63,107,82,0.18); border-radius: 16px;
-    padding: 14px 18px 15px; margin: 34px 0 20px;
-    box-shadow: 0 2px 0 rgba(41,45,40,0.03);
+  /* 老师 + 该老师名下课程 合并为一个整体分组容器：
+     深色老师头卡在上（不再有自己的圆角/阴影/margin），下方课程网格共用同一个浅色底盒，
+     视觉上连成一体，避免老师区块和课程卡片"各自为政"的割裂感 */
+  .teacher-group{
+    background: var(--paper-deep); border-radius: 18px; overflow:hidden;
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+    margin: 34px 0 20px;
   }
-  .teacher-header-card:first-of-type{ margin-top: 18px; }
+  .teacher-group:first-of-type{ margin-top: 18px; }
+  .teacher-group-body{ padding: 16px 16px 18px; }
+  .teacher-group-body .grid{ margin:0; }
+  .teacher-group-body .time-subheader:first-child{ margin-top:0; }
+
+  .teacher-header-card{
+    background: linear-gradient(155deg, #26302A, var(--ink) 70%);
+    padding: 15px 18px 16px; position:relative;
+  }
   .teacher-header-top{ display:flex; align-items:center; gap:11px; }
   .teacher-avatar-lg{
-    width:36px; height:36px; border-radius:50%; background:var(--ink); color:#fff;
+    width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.14); color:#fff;
     display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
+    border:1px solid rgba(255,255,255,0.18);
   }
   .teacher-name-lg{
     font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:17px;
-    color:var(--ink); letter-spacing:0.2px;
+    color:#fff; letter-spacing:0.2px;
   }
   .teacher-header-bio{
     display:flex; align-items:flex-start; gap:8px; margin-top:8px; padding-left:47px;
   }
   .teacher-bio-text{
-    flex:1; margin:0; font-size:13px; font-style:italic; color:var(--slate); line-height:1.6;
+    flex:1; margin:0; font-size:13px; font-style:italic; color:rgba(255,255,255,0.62); line-height:1.6;
     display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden;
   }
   .teacher-bio-text.expanded{ -webkit-line-clamp:unset; overflow:visible; white-space:pre-wrap; }
+  .teacher-header-bio .desc-toggle{ color:rgba(255,255,255,0.85); }
+  .teacher-header-bio .desc-toggle:hover{ color:#fff; }
 
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
@@ -760,21 +774,23 @@ function renderBoard(){
     const courses = groups[key].sort((a,b)=>
       (a.date||'').localeCompare(b.date||'') || (a.startTime||'').localeCompare(b.startTime||'')
     );
-    if(teacher && teacher.bio){
-      const bioOpen = !!expandedTeacherBios[key];
-      html += `<div class="teacher-header-card">
-        <div class="teacher-header-top">
-          <span class="teacher-avatar-lg">🍎</span>
-          <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
-        </div>
+    // 老师头卡（深色）+ 名下课程网格，统一包进 teacher-group 容器里，
+    // 形成一个视觉整体，不管有没有填写老师简介，头卡样式保持一致
+    const bioOpen = !!expandedTeacherBios[key];
+    const bioHtml = (teacher && teacher.bio) ? `
         <div class="teacher-header-bio">
           <p class="teacher-bio-text ${bioOpen?'expanded':''}">${escapeHtml(teacher.bio)}</p>
           <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
-        </div>
-      </div>`;
-    }else{
-      html += `<div class="date-divider"><span class="date-label">🍎 ${escapeHtml(teacherLabel)}</span><span class="date-line"></span></div>`;
-    }
+        </div>` : '';
+
+    html += `<div class="teacher-group">
+      <div class="teacher-header-card">
+        <div class="teacher-header-top">
+          <span class="teacher-avatar-lg">🍎</span>
+          <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
+        </div>${bioHtml}
+      </div>
+      <div class="teacher-group-body">`;
 
     // 同一位老师如果在不同日期都有课，这里再按日期拆出一个小标签，
     // 家长可以先扫一眼时间段，再决定点开哪张课程卡片，不用逐张卡片核对时间
@@ -788,6 +804,7 @@ function renderBoard(){
     }else{
       html += `<div class="grid">${courses.map(courseCardHtml).join('')}</div>`;
     }
+    html += `</div></div>`;
   });
   el.innerHTML = html;
   requestAnimationFrame(checkDescOverflow);
