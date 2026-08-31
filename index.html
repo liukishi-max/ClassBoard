@@ -392,6 +392,15 @@
     padding: 15px 18px 16px; position:relative;
   }
   .teacher-header-top{ display:flex; align-items:center; gap:11px; }
+  .teacher-share-btn{
+    margin-left:auto; flex-shrink:0; display:inline-flex; align-items:center; gap:5px;
+    padding:6px 9px; border:1px solid rgba(255,255,255,.22); border-radius:8px;
+    background:rgba(255,255,255,.08); color:rgba(255,255,255,.9);
+    font-family:'Noto Sans SC', system-ui, sans-serif; font-size:11.5px; font-weight:600; line-height:1;
+    cursor:pointer; transition:background .18s ease,border-color .18s ease; white-space:nowrap;
+  }
+  .teacher-share-btn:hover{ background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.32); }
+  .teacher-share-btn:active{ transform:translateY(1px); }
   .teacher-avatar-lg{
     width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.14); color:#fff;
     display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0;
@@ -653,6 +662,7 @@ const ADMIN_PASSWORD = "1234";
 // 从网址参数里读取机构标识，例如 ?org=katy —— 不同机构用不同的 org 参数，
 // 数据会各自独立存储，互不影响。没带参数时用 "main_data"，兼容之前已有的数据。
 const ORG_ID = (new URLSearchParams(window.location.search).get('org') || 'main_data').trim() || 'main_data';
+const SHARE_TEACHER_ID = (new URLSearchParams(window.location.search).get('teacher') || '').trim();
 const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: { orgName: "ClassBoard", showPaymentStatusPublic:false }, loaded:false };
 let isAdmin = false;
 let openRosters = {};
@@ -801,7 +811,8 @@ function renderBrand(){
   const org = state.settings.orgName || "ClassBoard";
   document.getElementById('brandTitle').textContent = org;
   document.getElementById('brandMark').textContent = org.charAt(0).toUpperCase();
-  document.title = `${org} · 课程板`;
+  const sharedTeacher = SHARE_TEACHER_ID ? state.teachers.find(t=>t.id===SHARE_TEACHER_ID) : null;
+  document.title = sharedTeacher ? `${sharedTeacher.name} · ${org}课程` : `${org} · 课程板`;
 }
 function renderHeaderActions(){
   const el = document.getElementById('headerActions');
@@ -947,20 +958,24 @@ function renderBoard(){
     el.innerHTML = `<div class="empty-state"><div class="glyph">⏳</div><p>正在加载课程板…</p></div>`;
     return;
   }
-  if(state.courses.length===0){
+  const visibleCourses = SHARE_TEACHER_ID
+    ? state.courses.filter(c=>c.teacherId===SHARE_TEACHER_ID)
+    : state.courses;
+
+  if(visibleCourses.length===0){
+    const teacher = SHARE_TEACHER_ID ? state.teachers.find(t=>t.id===SHARE_TEACHER_ID) : null;
     el.innerHTML = `<div class="empty-state">
       <div class="glyph">🗓️</div>
-      <h3>还没有发布任何课程</h3>
-      <p>${isAdmin ? '点击右上角「＋ 发布课程」，发布第一门课吧' : '机构还没有开放报名，请稍后再来看看'}</p>
+      <h3>${SHARE_TEACHER_ID ? (teacher ? escapeHtml(teacher.name)+' 暂无开放课程' : '这个老师的分享链接暂时无效') : '还没有发布任何课程'}</h3>
+      <p>${SHARE_TEACHER_ID ? '请联系机构获取最新课程链接' : (isAdmin ? '点击右上角「＋ 发布课程」，发布第一门课吧' : '机构还没有开放报名，请稍后再来看看')}</p>
     </div>`;
     return;
   }
-  const isSeedOnly = state.courses.length===1 && state.courses[0].id==='seed-course-math';
+  const isSeedOnly = visibleCourses.length===1 && visibleCourses[0].id==='seed-course-math';
 
-  // 按授课老师分组（原来是按日期分组，现在改成按老师分组：
-  // 每位老师一个板块，板块内的课程再按 日期 + 上课时间 排序）
+  // 按授课老师分组。带 teacher 参数的分享链接只渲染指定老师名下课程。
   const groups = {};
-  state.courses.forEach(c=>{
+  visibleCourses.forEach(c=>{
     const key = c.teacherId || '__no_teacher__';
     (groups[key] = groups[key] || []).push(c);
   });
@@ -1026,6 +1041,7 @@ function renderBoard(){
         <div class="teacher-header-top">
           <span class="teacher-avatar-lg" aria-hidden="true">${escapeHtml(initials(teacherLabel))}</span>
           <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
+          ${teacher ? `<button class="teacher-share-btn" onclick="shareTeacherCourses('${key}')" title="只分享这位老师的课程"><span aria-hidden="true">↗</span><span>分享课程</span></button>` : ''}
         </div>${bioHtml}${feeHtml}
       </div>
       <div class="teacher-group-body">`;
@@ -1047,6 +1063,45 @@ function renderBoard(){
     html += `</div></div>`;
   });
   el.innerHTML = html;
+}
+
+async function shareTeacherCourses(teacherId){
+  const teacher = state.teachers.find(t=>t.id===teacherId);
+  if(!teacher){ toast('没有找到这位老师', true); return; }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('teacher', teacherId);
+  // org 参数沿用当前机构；分享链接永远指向家长可打开的同一页面，只过滤到该老师。
+  if(ORG_ID && ORG_ID!=='main_data') url.searchParams.set('org', ORG_ID);
+
+  const orgName = state.settings.orgName || 'ClassBoard';
+  const shareData = {
+    title: `${teacher.name} · ${orgName}课程`,
+    text: `查看 ${teacher.name} 的课程安排与报名信息`,
+    url: url.toString()
+  };
+
+  if(navigator.share){
+    try{
+      await navigator.share(shareData);
+      return;
+    }catch(err){
+      if(err && err.name==='AbortError') return;
+    }
+  }
+
+  try{
+    await navigator.clipboard.writeText(url.toString());
+    toast(`已复制 ${teacher.name} 的专属课程链接`);
+  }catch(err){
+    const ta = document.createElement('textarea');
+    ta.value = url.toString();
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(ok ? `已复制 ${teacher.name} 的专属课程链接` : '复制失败，请手动复制网址', !ok);
+  }
 }
 
 function toggleDesc(courseId){
@@ -1700,7 +1755,8 @@ function layoutPoster(ctx, W, draw){
   }
 
   // 课程卡片（最多 4 条，按日期排序）
-  const list = [...state.courses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,4);
+  const posterCourses = SHARE_TEACHER_ID ? state.courses.filter(c=>c.teacherId===SHARE_TEACHER_ID) : state.courses;
+  const list = [...posterCourses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,4);
   if(list.length===0){
     if(draw){
       ctx.fillStyle = '#5B6B63';
