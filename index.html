@@ -5,11 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ClassBoard · 课程板</title>
 
-  <!-- 微信分享预览卡片配置  -->
-  <meta property="og:title" content="课程报名">
-  <meta property="og:description" content="查看机构老师课程安排与报名信息。">
-  <meta property="og:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&auto=format&fit=crop&q=80">
+  <!-- 微信 / 社交平台分享预览：保留固定封面图；页面运行后仍会按机构/老师更新标题与说明 -->
+  <meta property="og:title" content="Enrichminds · 课程报名">
+  <meta property="og:description" content="查看 Enrichminds 最新老师课程安排与报名信息。">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://class-board-iota.vercel.app/">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
+  <meta property="og:image:secure_url" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Enrichminds · 课程报名">
+  <meta name="twitter:description" content="查看 Enrichminds 最新老师课程安排与报名信息。">
+  <meta name="twitter:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
+  <link rel="image_src" href="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -925,10 +935,14 @@ function renderBrand(){
     document.title = copy.title;
     setMetaContent('meta[property="og:title"]', copy.title);
     setMetaContent('meta[property="og:description"]', copy.text);
+    setMetaContent('meta[name="twitter:title"]', copy.title);
+    setMetaContent('meta[name="twitter:description"]', copy.text);
   }else{
     document.title = `${org} · 课程板`;
     setMetaContent('meta[property="og:title"]', `${org} · 课程报名`);
-    setMetaContent('meta[property="og:description"]', `查看 ${org} 最新课程安排与报名信息。`);
+    setMetaContent('meta[property="og:description"]', `查看 ${org} 最新老师课程安排与报名信息。`);
+    setMetaContent('meta[name="twitter:title"]', `${org} · 课程报名`);
+    setMetaContent('meta[name="twitter:description"]', `查看 ${org} 最新老师课程安排与报名信息。`);
   }
 }
 function renderHeaderActions(){
@@ -2105,7 +2119,7 @@ function layoutPoster(ctx, W, draw){
     ctx.fillText(ctaText, W/2, y+37);
     ctx.textAlign = 'left';
   }
-  y += ctaH + 28;
+  y += ctaH + 18;
 
   // 二维码区（这里只预留空间，图像由 renderQrOntoCanvas 补画）
   const qrSize = 260, qrPad = 16;
@@ -2119,12 +2133,12 @@ function layoutPoster(ctx, W, draw){
   y += qrSize;
 
   // 底部说明文字
-  const footerH = 56;
+  const footerH = 38;
   if(draw){
     ctx.fillStyle = '#5B6B63';
     ctx.font = '400 16px "Noto Sans SC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('微信扫一扫 / 长按图片识别二维码，打开报名页面', W/2, y+40);
+    ctx.fillText('微信扫一扫 / 长按图片识别二维码，打开报名页面', W/2, y+24);
     ctx.textAlign = 'left';
   }
   y += footerH;
