@@ -666,6 +666,7 @@ function courseCardHtml(course){
 
   const adminBtns = isAdmin ? `
       <button class="btn btn-ghost btn-sm" onclick="openCourseForm('${course.id}')">编辑</button>
+      <button class="btn btn-ghost btn-sm" onclick="openCourseForm(null,'${course.id}')" title="复制这门课的内容，用于发布同一课程的新场次">复制</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCourse('${course.id}')">删除</button>
   ` : '';
 
@@ -776,11 +777,13 @@ function renderBoard(){
     );
     // 老师头卡（深色）+ 名下课程网格，统一包进 teacher-group 容器里，
     // 形成一个视觉整体，不管有没有填写老师简介，头卡样式保持一致
-    const bioOpen = !!expandedTeacherBios[key];
+    /* 简介统一改为点击后弹窗阅读（而不是原地展开）：
+       原地展开时，过长的简介会把「收起」按钮顶到很远的地方，家长读完还要往回滑才能关闭；
+       弹窗内容可滚动，关闭按钮固定跟在文字末尾（modal-actions），读完就在眼前，不用再滑回顶部 */
     const bioHtml = (teacher && teacher.bio) ? `
         <div class="teacher-header-bio">
-          <p class="teacher-bio-text ${bioOpen?'expanded':''}">${escapeHtml(teacher.bio)}</p>
-          <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
+          <p class="teacher-bio-text">${escapeHtml(teacher.bio)}</p>
+          <button class="desc-toggle visible" onclick="showTeacherBio('${key}')"><span class="label">简介</span><span class="chev">›</span></button>
         </div>` : '';
 
     html += `<div class="teacher-group">
@@ -962,7 +965,7 @@ function showTeacherBio(teacherId){
     <h2>${escapeHtml(t.name)}</h2>
     <p class="sub">老师简介</p>
     <p style="white-space:pre-wrap;font-size:14px;">${t.bio? escapeHtml(t.bio) : '这位老师还没有填写简介。'}</p>
-    <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">知道了</button></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">我知道了，关闭简介</button></div>
   `);
 }
 function showFeeDetail(courseId){
@@ -1060,41 +1063,50 @@ function teacherOptionsHtml(selectedId){
 function feePlanOptionsHtml(selectedId){
   return state.feePlans.map(p=>`<option value="${p.id}" ${p.id===selectedId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
 }
-function openCourseForm(courseId){
+/* courseId：传入则为「编辑」已有课程；
+   duplicateFromId：传入则为「复制」某课程模板发布新场次——
+   复制来源课程除日期/时间外的所有内容（名称、年级、老师、收费方案、名额上限、简介），
+   日期和时间留空由管理员重新填写；报名人数不是课程本身的字段（由报名记录关联新课程ID计算），
+   新课程会有全新的 id，因此天然不会带上原课程的报名记录/人数 */
+function openCourseForm(courseId, duplicateFromId){
   const editing = !!courseId;
-  const course = editing ? state.courses.find(c=>c.id===courseId) : {};
+  const dupSource = duplicateFromId ? state.courses.find(c=>c.id===duplicateFromId) : null;
+  const course = editing
+    ? state.courses.find(c=>c.id===courseId)
+    : (dupSource ? {...dupSource, date:'', startTime:'', endTime:''} : {});
+  const prefill = editing || !!dupSource;
   openModal(`
-    <h2>${editing?'编辑课程':'发布课程'}</h2>
-    <p class="sub">${editing?'修改内容后立即生效':'填写课程信息，发布后家长即可报名'}</p>
+    <h2>${editing?'编辑课程':(dupSource?'复制课程（发布新场次）':'发布课程')}</h2>
+    <p class="sub">${editing?'修改内容后立即生效':(dupSource?'已复制该课程的内容，请填写新的上课日期和时间后发布，报名名单不会带过来':'填写课程信息，发布后家长即可报名')}</p>
     <div class="field">
       <label for="cfName">课程名称</label>
-      <input type="text" id="cfName" value="${editing?escapeHtml(course.name||''):''}" placeholder="例如：跳绳强化班">
+      <input type="text" id="cfName" value="${prefill?escapeHtml(course.name||''):''}" placeholder="例如：跳绳强化班">
     </div>
     <div class="field-row">
       <div class="field">
         <label for="cfDate">上课日期</label>
-        <input type="date" id="cfDate" value="${editing?escapeHtml(course.date||''):''}">
+        <input type="date" id="cfDate" value="${prefill?escapeHtml(course.date||''):''}">
       </div>
       <div class="field">
         <label for="cfGrade">适合年级</label>
-        <input type="text" id="cfGrade" value="${editing?escapeHtml(course.grade||''):''}" placeholder="例如：三年级">
+        <input type="text" id="cfGrade" value="${prefill?escapeHtml(course.grade||''):''}" placeholder="例如：三年级">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
         <label for="cfStartH">开始时间</label>
-        ${timeSelectHtml('cfStart', editing?course.startTime:'')}
+        ${timeSelectHtml('cfStart', prefill?course.startTime:'')}
       </div>
       <div class="field">
         <label for="cfEndH">结束时间</label>
-        ${timeSelectHtml('cfEnd', editing?course.endTime:'')}
+        ${timeSelectHtml('cfEnd', prefill?course.endTime:'')}
       </div>
     </div>
     <div class="field">
       <label for="cfTeacher">任课老师</label>
       <select id="cfTeacher">
         <option value="">未指定</option>
-        ${teacherOptionsHtml(editing?course.teacherId:null)}
+        ${teacherOptionsHtml(prefill?course.teacherId:null)}
       </select>
       <div class="field-hint">没有想要的老师？先关闭此窗口，去「老师管理」新增</div>
     </div>
@@ -1102,21 +1114,21 @@ function openCourseForm(courseId){
       <label for="cfFeePlan">收费方案</label>
       <select id="cfFeePlan">
         <option value="">跟随老师默认收费</option>
-        ${feePlanOptionsHtml(editing?course.feePlanId:null)}
+        ${feePlanOptionsHtml(prefill?course.feePlanId:null)}
       </select>
       <div class="field-hint">不同课程可以选用同一个方案，去「收费方案」管理和新增</div>
     </div>
     <div class="field">
       <label for="cfCap">名额上限</label>
-      <input type="number" id="cfCap" min="1" value="${editing?(course.capacity||4):4}">
+      <input type="number" id="cfCap" min="1" value="${prefill?(course.capacity||4):4}">
     </div>
     <div class="field">
       <label for="cfDesc">课程简介</label>
-      <textarea id="cfDesc" placeholder="教学内容、适合人群等说明">${editing?escapeHtml(course.description||''):''}</textarea>
+      <textarea id="cfDesc" placeholder="教学内容、适合人群等说明">${prefill?escapeHtml(course.description||''):''}</textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="submitCourseForm(${editing?`'${courseId}'`:'null'})">${editing?'保存修改':'发布课程'}</button>
+      <button class="btn btn-primary" onclick="submitCourseForm(${editing?`'${courseId}'`:'null'})">${editing?'保存修改':(dupSource?'发布这个新场次':'发布课程')}</button>
     </div>
   `);
 }
