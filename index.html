@@ -2080,8 +2080,8 @@ function openPosterSaveFullscreen(){
     </div>
     <img class="wechat-poster-image" src="${currentPosterObjectUrl}" alt="课程报名海报">
     <div class="wechat-poster-help">
-      微信 / iPhone 中请<strong>长按上面的完整海报</strong>，选择“保存图片”。<br>
-      保存后即可从微信相册发送给朋友或群。
+      上面显示的是<strong>完整海报</strong>（为了整张显示会自动缩小）。<br>
+      请长按海报，选择“保存图片”；保存到相册的仍是原始完整尺寸。
     </div>
   `;
   document.body.appendChild(layer);
@@ -2151,7 +2151,7 @@ async function generatePosterImage(){
 
     box.innerHTML = `
       <img src="${currentPosterObjectUrl}" alt="报名海报"
-        style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
+        style="width:auto;max-width:100%;max-height:62vh;object-fit:contain;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
       <div style="font-size:13px;color:#6f746f;text-align:center;line-height:1.65;">
         ${mobile
           ? '点击“保存图片”后，长按完整海报即可保存到相册。'
@@ -2207,7 +2207,7 @@ function layoutPoster(ctx, W, draw){
   }
 
   // 顶部色带
-  const headerH = 168;
+  const headerH = 148;
   if(draw){
     const grad = ctx.createLinearGradient(0,0,W,0);
     grad.addColorStop(0,'#3F6B52'); grad.addColorStop(1,'#2C4C3B');
@@ -2217,19 +2217,19 @@ function layoutPoster(ctx, W, draw){
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '700 40px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(truncateText(ctx, org, W-2*pad), pad, 92);
+    ctx.fillText(truncateText(ctx, org, W-2*pad), pad, 82);
     ctx.font = '500 20px "Noto Sans SC", sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    ctx.fillText('课程报名', pad, 128);
+    ctx.fillText('课程报名', pad, 112);
   }else{
     ctx.font = '700 40px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
   }
-  y = headerH + 34;
+  y = headerH + 24;
 
   // 收费说明
   const fee = (state.settings.feeNotice || '').trim();
   if(fee){
-    const boxH = 118;
+    const boxH = 104;
     if(draw){
       ctx.fillStyle = '#E3EDE5';
       roundRect(ctx, pad, y, W-2*pad, boxH, 12); ctx.fill();
@@ -2238,12 +2238,12 @@ function layoutPoster(ctx, W, draw){
       ctx.fillStyle = '#2C4C3B';
       ctx.font = '700 20px "Noto Sans SC", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('💰 收费标准', pad+18, y+32);
+      ctx.fillText('💰 收费标准', pad+18, y+30);
       ctx.fillStyle = '#3A453F';
       ctx.font = '400 18px "Noto Sans SC", sans-serif';
-      wrapText(ctx, fee, pad+18, y+62, W-2*pad-36, 27, 2);
+      wrapText(ctx, fee, pad+18, y+57, W-2*pad-36, 25, 2);
     }
-    y += boxH + 24;
+    y += boxH + 18;
   }
 
   // 课程卡片（最多 4 条，按日期排序）
@@ -2258,7 +2258,7 @@ function layoutPoster(ctx, W, draw){
     }
     y += 60;
   }else{
-    const cardH = 116, gap = 16;
+    const cardH = 104, gap = 12;
     list.forEach(course=>{
       const meta = seatMeta(course);
       const accent = meta.status==='full' ? '#A9463D' : meta.status==='low' ? '#C98A2C' : '#3F6B52';
@@ -2273,16 +2273,16 @@ function layoutPoster(ctx, W, draw){
         ctx.fillStyle = '#1F2A24';
         ctx.font = '700 26px "Baloo 2", "ZCOOL KuaiLe", sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(truncateText(ctx, course.name||'未命名课程', W-2*pad-140), pad+24, y+40);
+        ctx.fillText(truncateText(ctx, course.name||'未命名课程', W-2*pad-140), pad+24, y+36);
 
         ctx.fillStyle = '#5B6B63';
         ctx.font = '400 18px "Noto Sans SC", sans-serif';
         const line = `${formatDateLabel(course.date)}  ${formatTimeRange(course.startTime, course.endTime)}`;
-        ctx.fillText(truncateText(ctx, line, W-2*pad-48), pad+24, y+72);
+        ctx.fillText(truncateText(ctx, line, W-2*pad-48), pad+24, y+65);
 
         ctx.fillStyle = accent;
         ctx.font = '700 18px "Noto Sans SC", sans-serif';
-        ctx.fillText(meta.status==='full' ? '名额已满' : `余 ${meta.remaining} 位`, pad+24, y+100);
+        ctx.fillText(meta.status==='full' ? '名额已满' : `余 ${meta.remaining} 位`, pad+24, y+91);
       }
       y += cardH + gap;
     });
@@ -2291,7 +2291,7 @@ function layoutPoster(ctx, W, draw){
 
   // CTA 徽章
   const ctaText = '长按下方二维码 · 立即扫码报名';
-  const ctaH = 56;
+  const ctaH = 50;
   if(draw){
     ctx.font = '700 24px "Noto Sans SC", sans-serif';
     const ctaW = ctx.measureText(ctaText).width + 60;
@@ -2299,13 +2299,13 @@ function layoutPoster(ctx, W, draw){
     roundRect(ctx, (W-ctaW)/2, y, ctaW, ctaH, 28); ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
-    ctx.fillText(ctaText, W/2, y+37);
+    ctx.fillText(ctaText, W/2, y+33);
     ctx.textAlign = 'left';
   }
-  y += ctaH + 18;
+  y += ctaH + 14;
 
   // 二维码区（这里只预留空间，图像由 renderQrOntoCanvas 补画）
-  const qrSize = 260, qrPad = 16;
+  const qrSize = 230, qrPad = 14;
   if(draw){
     const qrX = (W-qrSize)/2;
     ctx.fillStyle = '#FFFFFF';
@@ -2334,12 +2334,13 @@ function layoutPoster(ctx, W, draw){
    所以要等它生成完，再把结果 drawImage 貼到海报画布对应位置上 */
 function renderQrOntoCanvas(ctx, canvas, W, H, resolve, reject){
   try{
-    const qrSize = 260;
+    const qrSize = 230;
     const qrPad = 16;
     // 二维码的纵向位置需要和 layoutPoster 里预留的位置完全对应，这里重新走一遍布局（不绘制）来算出 y
     const mctx = document.createElement('canvas').getContext('2d');
     const footerH = 38;
-    const yBeforeQr = layoutPoster(mctx, W, false) - (qrSize + footerH); // 与 layoutPoster 的实际底部高度保持一致
+    const bottomSafe = 18;
+    const yBeforeQr = layoutPoster(mctx, W, false) - (qrSize + footerH + bottomSafe); // 精确对应二维码顶部位置
     const qrX = (W-qrSize)/2;
     const qrY = yBeforeQr;
 
