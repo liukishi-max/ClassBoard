@@ -275,9 +275,23 @@
     background:var(--amber);
   }
 
-  .teacher-bio-block{
-    display:flex; align-items:flex-start; gap:8px;
-    margin: -8px 0 20px; padding: 0 4px 0 16px;
+  .teacher-header-card{
+    background: rgba(63,107,82,0.07); border: 1.5px solid rgba(63,107,82,0.18); border-radius: 16px;
+    padding: 14px 18px 15px; margin: 34px 0 20px;
+    box-shadow: 0 2px 0 rgba(41,45,40,0.03);
+  }
+  .teacher-header-card:first-of-type{ margin-top: 18px; }
+  .teacher-header-top{ display:flex; align-items:center; gap:11px; }
+  .teacher-avatar-lg{
+    width:36px; height:36px; border-radius:50%; background:var(--ink); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
+  }
+  .teacher-name-lg{
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:17px;
+    color:var(--ink); letter-spacing:0.2px;
+  }
+  .teacher-header-bio{
+    display:flex; align-items:flex-start; gap:8px; margin-top:8px; padding-left:47px;
   }
   .teacher-bio-text{
     flex:1; margin:0; font-size:13px; font-style:italic; color:var(--slate); line-height:1.6;
@@ -746,13 +760,20 @@ function renderBoard(){
     const courses = groups[key].sort((a,b)=>
       (a.date||'').localeCompare(b.date||'') || (a.startTime||'').localeCompare(b.startTime||'')
     );
-    html += `<div class="date-divider"><span class="date-label">🍎 ${escapeHtml(teacherLabel)}</span><span class="date-line"></span></div>`;
     if(teacher && teacher.bio){
       const bioOpen = !!expandedTeacherBios[key];
-      html += `<div class="teacher-bio-block">
-        <p class="teacher-bio-text ${bioOpen?'expanded':''}">${escapeHtml(teacher.bio)}</p>
-        <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
+      html += `<div class="teacher-header-card">
+        <div class="teacher-header-top">
+          <span class="teacher-avatar-lg">🍎</span>
+          <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
+        </div>
+        <div class="teacher-header-bio">
+          <p class="teacher-bio-text ${bioOpen?'expanded':''}">${escapeHtml(teacher.bio)}</p>
+          <button class="desc-toggle visible" onclick="toggleTeacherBioBlock('${key}')"><span class="label">${bioOpen?'收起':'简介'}</span><span class="chev">${bioOpen?'⌄':'›'}</span></button>
+        </div>
       </div>`;
+    }else{
+      html += `<div class="date-divider"><span class="date-label">🍎 ${escapeHtml(teacherLabel)}</span><span class="date-line"></span></div>`;
     }
 
     // 同一位老师如果在不同日期都有课，这里再按日期拆出一个小标签，
@@ -1070,7 +1091,7 @@ function openCourseForm(courseId){
     </div>
     <div class="field">
       <label for="cfCap">名额上限</label>
-      <input type="number" id="cfCap" min="1" value="${editing?(course.capacity||10):10}">
+      <input type="number" id="cfCap" min="1" value="${editing?(course.capacity||4):4}">
     </div>
     <div class="field">
       <label for="cfDesc">课程简介</label>
