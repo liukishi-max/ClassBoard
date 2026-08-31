@@ -58,8 +58,8 @@
     /* 名额紧张：低饱和灰绿色，轻微提醒但不制造焦虑 */
     --low:#748174;
     --low-tint:#EEF1EC;
-    --full:#858982;
-    --full-tint:#F0F0EC;
+    --full:#A3A79F;
+    --full-tint:#F5F5F2;
     --brick:#81524C;
     --brick-tint:#F7E7E5;
     --slate:#5B6B63;
@@ -189,6 +189,11 @@
   .course-summary{ padding:20px 20px 16px 24px; cursor:pointer; }
   .course-summary:hover{ background:rgba(227,237,229,.25); }
   .course-summary-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .course-title-wrap{ min-width:0; }
+  .course-teacher-label{
+    display:inline-flex; align-items:center; margin-top:4px; color:var(--moss-dark);
+    font-size:11.5px; font-weight:600; line-height:1.35; letter-spacing:.1px;
+  }
   .status-badge{
     flex-shrink:0; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700;
     color:var(--status-color); background:var(--status-bg, var(--moss-tint));
@@ -321,7 +326,7 @@
      深色老师头卡在上（不再有自己的圆角/阴影/margin），下方课程网格共用同一个浅色底盒，
      视觉上连成一体，避免老师区块和课程卡片"各自为政"的割裂感 */
   .teacher-group{
-    background: var(--paper-deep); border-radius: 18px; overflow:hidden;
+    background: #F4F1E9; border-radius: 18px; overflow:hidden;
     border: 1px solid var(--line); box-shadow: var(--shadow);
     margin: 34px 0 20px;
   }
@@ -331,7 +336,7 @@
   .teacher-group-body .time-subheader:first-child{ margin-top:0; }
 
   .teacher-header-card{
-    background: linear-gradient(155deg, #26302A, var(--ink) 70%);
+    background: linear-gradient(155deg, #2D3530, #202923 72%);
     padding: 15px 18px 16px; position:relative;
   }
   .teacher-header-top{ display:flex; align-items:center; gap:11px; }
@@ -408,6 +413,11 @@
   }
   .pay-btn.paid{ border-color:var(--moss); background:var(--moss-tint); color:var(--moss-dark); }
   .pay-btn.unpaid{ border-color:var(--amber); background:var(--amber-tint); color:#8a611f; }
+  .payment-status-public{
+    flex-shrink:0; border-radius:999px; padding:1px 7px; font-size:10.5px; font-weight:600;
+    color:var(--slate); background:var(--full-tint);
+  }
+  .payment-status-public.paid{ color:var(--moss-dark); background:var(--moss-tint); }
 
   .time-subheader{ display:flex; align-items:center; gap:10px; margin: 6px 0 12px; }
   .time-subheader .pill{
@@ -468,7 +478,11 @@
     .card-actions .btn{ width:100%; }
     .wrap{ padding:14px 12px 64px; }
     .teacher-group{ margin-top:24px; border-radius:16px; }
-    .teacher-group-body{ padding:12px; }
+    /* 课程状态色条与老师分组左边缘对齐，减少“卡片套卡片”的悬浮感 */
+    .teacher-group-body{ padding:12px 12px 12px 0 !important; }
+    .teacher-group-body > .grid{ margin-left:0; }
+    .teacher-group-body .time-subheader{ padding-left:12px; }
+    .teacher-group-body .card{ margin-left:0; border-left:0; border-radius:0 var(--radius) var(--radius) 0; }
     .grid{ gap:12px; }
     .course-summary{ padding:18px 16px 14px 21px; }
     .course-details{ padding:3px 16px 18px 21px; }
@@ -476,6 +490,7 @@
     .roster-preview{ padding:10px 16px 9px 21px; }
     .card > .card-actions{ padding:0 16px 18px 21px; }
   }
+  .field input[type="checkbox"]{ padding:0; border:0; background:transparent; }
 </style>
 </head>
 <body>
@@ -502,7 +517,7 @@ const ADMIN_PASSWORD = "1234";
 // 从网址参数里读取机构标识，例如 ?org=katy —— 不同机构用不同的 org 参数，
 // 数据会各自独立存储，互不影响。没带参数时用 "main_data"，兼容之前已有的数据。
 const ORG_ID = (new URLSearchParams(window.location.search).get('org') || 'main_data').trim() || 'main_data';
-const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: { orgName: "ClassBoard" }, loaded:false };
+const state = { courses: [], teachers: [], signups: [], feePlans: [], settings: { orgName: "ClassBoard", showPaymentStatusPublic:false }, loaded:false };
 let isAdmin = false;
 let openRosters = {};
 let expandedDescs = {};
@@ -543,7 +558,7 @@ function templateSeedData(){
       text: '单次试课 100 元，正式课 150 元/次，报名后请添加老师微信付款'
     }],
     signups: [],
-    settings: { orgName: "ClassBoard" }
+    settings: { orgName: "ClassBoard", showPaymentStatusPublic:false }
   };
 }
 
@@ -558,7 +573,7 @@ function initFirebaseSync(){
       state.teachers = data.teachers || [];
       state.signups = data.signups || [];
       state.feePlans = data.feePlans || [];
-      state.settings = data.settings || { orgName: "ClassBoard" };
+      state.settings = { orgName: "ClassBoard", showPaymentStatusPublic:false, ...(data.settings || {}) };
     } else {
       const seed = templateSeedData();
       state.courses = seed.courses;
@@ -660,9 +675,9 @@ function renderHeaderActions(){
     entry.innerHTML = '';
     el.innerHTML = `
       <span class="admin-pill"><span class="dot"></span>机构管理模式</span>
-      <button class="btn btn-primary btn-sm" onclick="openCourseForm()">＋ 发布课程</button>
-      <button class="btn btn-primary btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
-      <button class="btn btn-ghost btn-sm" onclick="openOrgSettings()">机构设置</button>
+      <button class="btn btn-ghost btn-sm" onclick="openCourseForm()">＋ 发布课程</button>
+      <button class="btn btn-ghost btn-sm" onclick="openPosterModal()">📮 生成分享海报</button>
+      <button class="btn btn-ghost btn-sm" onclick="openOrgSettings()">收款状态设置</button>
       <button class="btn btn-ghost btn-sm" onclick="openTeacherManage()">老师管理</button>
       <button class="btn btn-ghost btn-sm" onclick="openFeeManage()">收费方案</button>
       <button class="btn btn-ghost btn-sm" onclick="exportExcel()">导出 Excel</button>
@@ -725,7 +740,10 @@ function courseCardHtml(course){
           </span>
         </div>`;
       }
-      return `<div class="roster-row"><span class="roster-name">${escapeHtml(s.studentName)}</span></div>`;
+      return `<div class="roster-row">
+        <span class="roster-name">${escapeHtml(s.studentName)}</span>
+        ${state.settings.showPaymentStatusPublic ? `<span class="payment-status-public ${s.paid?'paid':''}">${s.paid?'已收款':'待收款'}</span>` : ''}
+      </div>`;
     }).join('');
   }
 
@@ -746,7 +764,10 @@ function courseCardHtml(course){
   <article class="card" style="--card-accent:${accentColor};--status-color:${accentColor};--status-bg:${statusBg}">
     <div class="course-summary" role="button" tabindex="0" aria-expanded="${detailsExpanded}" aria-controls="details-${course.id}" onclick="toggleDesc('${course.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDesc('${course.id}')}">
       <div class="course-summary-top">
-        <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
+        <div class="course-title-wrap">
+          <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
+          <span class="course-teacher-label">授课老师 · ${teacher ? escapeHtml(teacher.name) : '未指定老师'}</span>
+        </div>
         <span class="status-badge">${statusText}</span>
       </div>
       <div class="core-meta">
@@ -995,12 +1016,18 @@ function exitAdmin(){
 
 function openOrgSettings(){
   openModal(`
-    <h2>机构设置</h2>
-    <p class="sub">修改网页上显示的机构名称，全网实时生效</p>
+    <h2>收款状态设置</h2>
+    <p class="sub">设置家长是否可以在报名名单中查看收款状态</p>
+    <div class="field">
+      <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:600;">
+        <input type="checkbox" id="showPaymentStatusPublic" ${state.settings.showPaymentStatusPublic?'checked':''} style="width:17px;height:17px;margin:2px 0 0;accent-color:var(--moss);">
+        <span>前台显示收款状态<br><span class="field-hint" style="display:block;font-weight:400;">开启后，家长可在报名名单中看到“已收款”或“待收款”；关闭后仅管理员可见。</span></span>
+      </label>
+    </div>
     <div class="field">
       <label for="orgNameInput">机构名称</label>
       <input type="text" id="orgNameInput" value="${escapeHtml(state.settings.orgName || 'ClassBoard')}" placeholder="例如：卓越教育工作室">
-      <div class="field-hint">收费标准现在按老师单独设置，请前往「老师管理」填写</div>
+      <div class="field-hint">收费标准请前往“老师管理”设置</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">取消</button>
@@ -1012,7 +1039,9 @@ async function saveOrgSettings(){
   const name = document.getElementById('orgNameInput').value.trim();
   if(!name){ toast('机构名称不能为空', true); return; }
   state.settings.orgName = name;
+  state.settings.showPaymentStatusPublic = !!document.getElementById('showPaymentStatusPublic').checked;
   renderBrand();
+  renderBoard();
   closeModal();
   const ok = await syncToCloud();
   if(ok) toast('机构信息已更新');
@@ -1362,11 +1391,12 @@ function exportExcel(){
 
   const teacherName = id => (state.teachers.find(t=>t.id===id)||{}).name || '未指定';
 
-  const detail = [['课程名称','上课日期','上课时间','学生姓名','家长手机尾号','家长微信名','付款状态','报名时间']];
+  const detail = [['课程名称','授课老师','上课日期','上课时间','学生姓名','家长手机尾号','家长微信名','付款状态','报名时间']];
   state.signups.forEach(s=>{
     const c = state.courses.find(c=>c.id===s.courseId);
     detail.push([
       c? c.name : '（课程已删除）',
+      c? teacherName(c.teacherId) : '',
       c? c.date : '',
       c? formatTimeRange(c.startTime, c.endTime) : '',
       s.studentName, s.phoneLast4, s.wechatName||'', s.paid?'已收款':'待收款',
