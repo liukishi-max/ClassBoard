@@ -218,10 +218,10 @@
   .desc{
     font-size:13.5px; color:var(--ink-soft); margin:0; white-space:pre-wrap;
     line-height:1.6; letter-spacing:0.1px;
-    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden;
+    display:none;
   }
-  .desc.expanded{ -webkit-line-clamp:unset; overflow:visible; }
-  .desc.empty{ color:#9AA69D; font-style:italic; -webkit-line-clamp:1; }
+  .desc.expanded{ display:block; }
+  .desc.empty{ color:#9AA69D; font-style:italic; display:block; }
   .desc-toggle{
     background:none; border:none; padding:0; margin:0; flex-shrink:0;
     font-size:12px; font-weight:700; color:var(--moss); cursor:pointer;
@@ -320,8 +320,12 @@
   .teacher-header-fee-icon{ flex-shrink:0; font-size:13px; line-height:1.6; }
   .teacher-header-fee-text{
     flex:1; margin:0; font-size:13px; color:rgba(255,255,255,0.78); line-height:1.6;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden;
   }
+  .teacher-header-fee-text.expanded{ -webkit-line-clamp:unset; overflow:visible; white-space:pre-wrap; }
   .teacher-header-fee-text b{ color:#fff; font-weight:700; }
+  .teacher-header-fee .desc-toggle{ color:rgba(255,255,255,0.85); }
+  .teacher-header-fee .desc-toggle:hover{ color:#fff; }
 
   .seat-dots{ display:flex; flex-wrap:wrap; gap:4px; max-width:180px; }
   .seat-dot{ width:9px; height:9px; border-radius:50%; background:var(--line); flex-shrink:0; }
@@ -453,6 +457,7 @@ let openRosters = {};
 let expandedDescs = {};
 let expandedFees = {};
 let expandedTeacherBios = {};
+let expandedTeacherFees = {};
 
 /* 首个访问、云端还没有任何数据时使用的示例模板，避免首页一片空白。
    管理员可以直接在「机构管理」里编辑或删除这门课，改成自己的真实课程即可。 */
@@ -708,7 +713,7 @@ function courseCardHtml(course){
       <div class="desc-header">
         <span class="desc-avatar">📖</span>
         <span class="desc-label">课程简介</span>
-        ${course.description ? `<button class="desc-toggle ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
+        ${course.description ? `<button class="desc-toggle visible ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
       </div>
       <div class="desc-wrap">
         <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
@@ -792,10 +797,14 @@ function renderBoard(){
       }
     }
     const feeLines = feeSourceText ? feeSourceText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean) : [];
+    const feeExpanded = !!expandedTeacherFees[key];
+    const feeSummary = feeLines.join('　·　');
+    const feeFull = feeLines.join('\n');
     const feeHtml = (teacher || feeLines.length) ? `
         <div class="teacher-header-fee">
           <span class="teacher-header-fee-icon">💰</span>
-          <p class="teacher-header-fee-text">${feeLines.length ? `<b>收费标准：</b>${feeLines.map(l=>escapeHtml(l)).join('　·　')}` : '老师还没有设置收费标准'}</p>
+          <p class="teacher-header-fee-text ${feeExpanded?'expanded':''}">${feeLines.length ? `<b>收费标准：</b>${escapeHtml(feeExpanded?feeFull:feeSummary)}` : '老师还没有设置收费标准'}</p>
+          ${feeLines.length ? `<button class="desc-toggle visible" onclick="toggleTeacherFee('${key}')"><span class="label">${feeExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
         </div>` : '';
 
     html += `<div class="teacher-group">
@@ -822,31 +831,18 @@ function renderBoard(){
     html += `</div></div>`;
   });
   el.innerHTML = html;
-  requestAnimationFrame(checkDescOverflow);
 }
 
-/* 课程简介默认最多显示 3 行（CSS line-clamp），这里检测文字是否被截断，
-   只有真正超出 3 行的简介才会显示"查看详情"按钮，短简介不会出现多余按钮 */
-function checkDescOverflow(){
-  document.querySelectorAll('.desc-block').forEach(block=>{
-    const desc = block.querySelector('.desc');
-    const toggle = block.querySelector('.desc-toggle');
-    if(!desc || !toggle) return;
-    if(desc.classList.contains('expanded')){
-      toggle.classList.add('visible');
-      return;
-    }
-    if(desc.scrollHeight > desc.clientHeight + 2){
-      toggle.classList.add('visible');
-    }
-  });
-}
 function toggleDesc(courseId){
   expandedDescs[courseId] = !expandedDescs[courseId];
   renderBoard();
 }
 function toggleFee(courseId){
   expandedFees[courseId] = !expandedFees[courseId];
+  renderBoard();
+}
+function toggleTeacherFee(teacherId){
+  expandedTeacherFees[teacherId] = !expandedTeacherFees[teacherId];
   renderBoard();
 }
 
