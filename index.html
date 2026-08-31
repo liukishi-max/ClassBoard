@@ -704,6 +704,28 @@
     text-align:center;
   }
 
+
+  .poster-action-row{
+    width:100%;
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+  .poster-share-btn{
+    min-width:112px;
+  }
+  @media (max-width:520px){
+    .poster-action-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+    }
+    .poster-action-row .btn{
+      width:100%;
+      justify-content:center;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -1801,45 +1823,157 @@ function isMobileDevice(){
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 }
 
+
+let currentPosterBlob = null;
+let currentPosterFile = null;
+let currentPosterObjectUrl = '';
+
+function clearPosterShareCache(){
+  currentPosterBlob = null;
+  currentPosterFile = null;
+  if(currentPosterObjectUrl){
+    try{ URL.revokeObjectURL(currentPosterObjectUrl); }catch(e){}
+    currentPosterObjectUrl = '';
+  }
+}
+
+async function shareGeneratedPoster(ev){
+  if(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  if(!currentPosterBlob){
+    toast('海报还在生成，请稍等');
+    return;
+  }
+
+  const org = state.settings.orgName || 'ClassBoard';
+  const file = currentPosterFile || new File(
+    [currentPosterBlob],
+    `${org}_课程报名海报.jpg`,
+    {type:'image/jpeg'}
+  );
+
+  // 真正把“图片文件”交给手机系统分享，而不是分享网页链接。
+  // 支持时微信会作为可选目标出现；取消系统分享后，当前海报弹窗仍保留。
+  try{
+    if(navigator.share){
+      const data = { files:[file], title:`${org} · 课程报名` };
+      if(!navigator.canShare || navigator.canShare({files:[file]})){
+        await navigator.share(data);
+        return;
+      }
+    }
+  }catch(err){
+    if(err && err.name === 'AbortError') return;
+    console.warn('图片系统分享失败：', err);
+  }
+
+  // 不支持文件分享时，不关闭弹窗，直接给出保存/发送提示。
+  toast('当前浏览器不能直接转发图片，请先保存图片，再从微信相册发送', true);
+}
+
+function downloadGeneratedPoster(ev){
+  if(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  if(!currentPosterBlob){
+    toast('海报还在生成，请稍等');
+    return;
+  }
+  const org = state.settings.orgName || 'ClassBoard';
+  if(!currentPosterObjectUrl){
+    currentPosterObjectUrl = URL.createObjectURL(currentPosterBlob);
+  }
+  const a = document.createElement('a');
+  a.href = currentPosterObjectUrl;
+  a.download = `${org}_课程报名海报.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function openPosterModal(){
   const mobile = isMobileDevice();
+  clearPosterShareCache();
   openModal(`
     <h2>生成分享海报</h2>
-    <p class="sub">${mobile ? '生成后长按图片选"保存图像"存到手机相册，再从相册发到微信群或朋友圈——图片比链接更抓眼球' : '生成后把图片拖拽进微信聊天窗口发送（不要用"发送文件"选它），比链接更抓眼球'}</p>
+    <p class="sub">${mobile
+      ? '生成后可以直接尝试“转发图片”；如果微信没有出现在系统分享里，也可以先保存，再从微信相册发送。'
+      : '生成后可下载图片，或直接把图片拖进微信聊天窗口发送。'}</p>
+
     <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
       <div style="color:var(--slate);font-size:13px;">正在生成海报…</div>
     </div>
+
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
-      ${mobile ? '' : '<a id="posterDownloadBtn" class="btn btn-primary" style="display:none;text-decoration:none;" download="报名海报.jpg">下载海报</a>'}
+      <div class="poster-action-row">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        <button type="button" id="posterSaveBtn" class="btn btn-ghost" style="display:none;" onclick="downloadGeneratedPoster(event)">保存图片</button>
+        <button type="button" id="posterShareBtn" class="btn btn-primary poster-share-btn" style="display:none;" onclick="shareGeneratedPoster(event)">转发图片</button>
+      </div>
     </div>
   `);
   setTimeout(generatePosterImage, 30);
 }
-
 async function generatePosterImage(){
   const box = document.getElementById('posterPreviewBox');
   if(!box) return;
   const mobile = isMobileDevice();
+
   try{
     if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
+
     const canvas = await drawPosterCanvas();
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+    const blob = await new Promise((resolve, reject)=>{
+      canvas.toBlob(
+        b => b ? resolve(b) : reject(new Error('无法生成图片文件')),
+        'image/jpeg',
+        0.92
+      );
+    });
+
+    currentPosterBlob = blob;
+    const org = state.settings.orgName || 'ClassBoard';
+    currentPosterFile = new File(
+      [blob],
+      `${org}_课程报名海报.jpg`,
+      {type:'image/jpeg', lastModified:Date.now()}
+    );
+
+    if(currentPosterObjectUrl){
+      try{ URL.revokeObjectURL(currentPosterObjectUrl); }catch(e){}
+    }
+    currentPosterObjectUrl = URL.createObjectURL(blob);
+
     box.innerHTML = `
-      <img src="${dataUrl}" alt="报名海报" style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
-      <div style="font-size:13.5px;color:#8a611f;font-weight:800;text-align:center;line-height:1.6;">
+      <img src="${currentPosterObjectUrl}" alt="报名海报"
+        style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
+      <div style="font-size:13px;color:#6f746f;text-align:center;line-height:1.65;">
         ${mobile
-          ? '👆 长按上方图片，选"保存图像"存到相册<br>再打开相册从相册里发送给微信好友/群'
-          : '👆 把上方图片拖拽进微信聊天窗口即可发送<br>（微信「发送文件」按钮选中的话会变成文件，不会是图片）'}
+          ? '优先点“转发图片”。如果系统没有微信选项，就点“保存图片”，再从微信相册发送。'
+          : '下载后直接把图片拖进微信聊天窗口，发送出去会按图片显示。'}
       </div>
     `;
-    const dl = document.getElementById('posterDownloadBtn');
-    if(dl){ dl.href = dataUrl; dl.style.display = 'inline-flex'; }
+
+    const shareBtn = document.getElementById('posterShareBtn');
+    const saveBtn = document.getElementById('posterSaveBtn');
+    if(saveBtn) saveBtn.style.display = 'inline-flex';
+
+    if(shareBtn){
+      let canFileShare = false;
+      try{
+        canFileShare = !!navigator.share &&
+          (!navigator.canShare || navigator.canShare({files:[currentPosterFile]}));
+      }catch(e){}
+      shareBtn.style.display = canFileShare ? 'inline-flex' : 'none';
+    }
   }catch(err){
     box.innerHTML = `<div style="color:var(--brick);font-size:13px;">海报生成失败：${escapeHtml(String(err && err.message || err))}</div>`;
   }
 }
-
 /* 用「先量后画」两遍：第一遍只用来计算总高度（不落笔），第二遍在真正尺寸的画布上绘制，
    这样无论课程有几条，海报高度都刚好，不会留白或被裁掉 */
 function drawPosterCanvas(){
