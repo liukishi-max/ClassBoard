@@ -55,7 +55,9 @@
     --moss-tint:#E3EDE5;
     --amber:#C98A2C;
     --amber-tint:#FBF1DF;
-    --brick:#A9463D;
+    --full:#858982;
+    --full-tint:#F0F0EC;
+    --brick:#81524C;
     --brick-tint:#F7E7E5;
     --slate:#5B6B63;
     --line:#DCD5C0;
@@ -164,7 +166,7 @@
 
   .card{
     background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
-    border:1px solid var(--line); padding:19px 20px; display:flex; flex-direction:column; gap:11px;
+    border:1px solid rgba(220,213,192,.88); padding:0; display:flex; flex-direction:column; gap:0;
     position:relative; overflow:hidden;
     transition: transform .18s ease, box-shadow .18s ease;
   }
@@ -173,12 +175,49 @@
     box-shadow: 0 2px 4px rgba(31,42,36,0.07), 0 12px 28px rgba(31,42,36,0.09);
   }
   .card::before{
-    content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--card-accent, var(--moss));
+    content:''; position:absolute; top:0; left:0; width:5px; height:100%; background: var(--card-accent, var(--moss));
   }
   .course-name{
-    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:19.5px; margin:0;
-    letter-spacing:0.2px; line-height:1.4; color:var(--ink);
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:23px; margin:0;
+    letter-spacing:0.1px; line-height:1.3; color:var(--ink);
   }
+
+  /* 移动端先展示课程、时间、状态三项核心信息 */
+  .course-summary{ padding:20px 20px 16px 24px; cursor:pointer; }
+  .course-summary:hover{ background:rgba(227,237,229,.25); }
+  .course-summary-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .status-badge{
+    flex-shrink:0; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700;
+    color:var(--status-color); background:var(--status-bg, var(--moss-tint));
+  }
+  .core-meta{ margin-top:13px; display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
+  .core-time{ min-width:0; }
+  .core-time-label{ display:block; color:var(--slate); font-size:11px; font-weight:600; margin-bottom:2px; }
+  .core-date{ display:block; font-size:15px; font-weight:700; line-height:1.4; }
+  .core-clock{ display:block; color:var(--ink-soft); font-size:13px; font-weight:500; margin-top:1px; }
+  .core-seat{ color:var(--status-color); font-size:13px; font-weight:700; white-space:nowrap; }
+  .details-trigger{
+    width:100%; border:0; border-top:1px solid rgba(220,213,192,.72); background:#fff;
+    color:var(--moss-dark); display:flex; align-items:center; justify-content:space-between;
+    padding:11px 20px 11px 24px; font-size:13px; font-weight:700; text-align:left;
+  }
+  .details-trigger:hover{ background:rgba(227,237,229,.45); }
+  .details-trigger .chev{ font-size:18px; line-height:1; transition:transform .2s ease; }
+  .details-trigger.open .chev{ transform:rotate(90deg); }
+  .course-details{ display:none; padding:4px 20px 20px 24px; }
+  .course-details.expanded{ display:block; animation:detailsIn .2s ease; }
+  @keyframes detailsIn{ from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+  .detail-meta{ display:flex; gap:18px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid var(--line); }
+  .detail-meta-item{ display:flex; flex-direction:column; gap:1px; }
+  .detail-meta-label{ color:var(--slate); font-size:11px; }
+  .detail-meta-value{ color:var(--ink); font-size:13px; font-weight:600; }
+  .detail-section{ padding-top:14px; }
+  .detail-section-title{ margin:0 0 7px; font-size:13px; font-weight:700; color:var(--ink); }
+  .course-description{ margin:0; color:var(--ink-soft); font-size:13px; line-height:1.7; white-space:pre-wrap; }
+  .roster-preview{ padding:13px 20px 12px 24px; border-top:1px solid rgba(220,213,192,.72); }
+  .roster-preview .detail-section-title{ display:flex; justify-content:space-between; align-items:center; }
+  .roster-count{ color:var(--slate); font-size:12px; font-weight:600; }
+  .card > .card-actions{ padding:0 20px 20px 24px; margin-top:0; }
 
   /* 信息方块：上课时间 / 年级 / 剩余名额 — 各自独立浅色区块，参考报名系统的工整卡片风格 */
   .info-grid{
@@ -295,11 +334,11 @@
   .teacher-header-top{ display:flex; align-items:center; gap:11px; }
   .teacher-avatar-lg{
     width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.14); color:#fff;
-    display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0;
     border:1px solid rgba(255,255,255,0.18);
   }
   .teacher-name-lg{
-    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:17px;
+    font-family:'Baloo 2', 'ZCOOL KuaiLe', sans-serif; font-weight:700; font-size:21px;
     color:#fff; letter-spacing:0.2px;
   }
   .teacher-header-bio{
@@ -346,13 +385,13 @@
     display:flex; align-items:center; gap:5px;
   }
   .roster{
-    display:flex; border-top:1px dashed var(--line); margin-top:4px; padding-top:10px;
-    flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;
+    display:flex; border-top:1px solid var(--line); margin-top:4px;
+    flex-direction:column; gap:0; max-height:220px; overflow-y:auto;
   }
   .roster-empty{ font-size:12.5px; color:#9AA69D; font-style:italic; }
   .roster-row{
     display:flex; align-items:center; justify-content:space-between; font-size:13px;
-    background:var(--paper-deep); border-radius:8px; padding:6px 9px; gap:8px;
+    background:transparent; border-radius:0; border-bottom:1px solid rgba(220,213,192,.65); padding:9px 2px; gap:8px;
   }
   .roster-name{ font-weight:600; }
   .roster-name-input{
@@ -424,6 +463,15 @@
     .field-row{ flex-direction:column; gap:0; }
     .card-actions{ flex-direction:column; }
     .card-actions .btn{ width:100%; }
+    .wrap{ padding:14px 12px 64px; }
+    .teacher-group{ margin-top:24px; border-radius:16px; }
+    .teacher-group-body{ padding:12px; }
+    .grid{ gap:12px; }
+    .course-summary{ padding:18px 16px 14px 21px; }
+    .course-details{ padding:3px 16px 18px 21px; }
+    .details-trigger{ padding:11px 16px 11px 21px; }
+    .roster-preview{ padding:13px 16px 12px 21px; }
+    .card > .card-actions{ padding:0 16px 18px 21px; }
   }
 </style>
 </head>
@@ -549,6 +597,12 @@ async function syncToCloud(){
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function initials(name){
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return '?';
+  if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 function parseTime12(t){
@@ -627,7 +681,7 @@ function seatMeta(course){
   return {enrolled, cap, remaining: Math.max(0,remaining), status};
 }
 function seatDotsHtml(meta, compact){
-  const colorVar = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
+  const colorVar = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
   if(meta.cap > 30){
     const pct = Math.min(100, Math.round((meta.enrolled/meta.cap)*100));
     return `<div style="width:${compact?'100%':'120px'};height:${compact?'5px':'8px'};border-radius:5px;background:var(--line);overflow:hidden;">
@@ -643,9 +697,10 @@ function seatDotsHtml(meta, compact){
 function courseCardHtml(course){
   const meta = seatMeta(course);
   const teacher = state.teachers.find(t=>t.id===course.teacherId);
-  const accentColor = meta.status==='full' ? 'var(--brick)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
+  const accentColor = meta.status==='full' ? 'var(--full)' : meta.status==='low' ? 'var(--amber)' : 'var(--moss)';
+  const statusBg = meta.status==='full' ? 'var(--full-tint)' : meta.status==='low' ? 'var(--amber-tint)' : 'var(--moss-tint)';
   const enrolledList = enrolledOf(course.id).slice().sort((a,b)=> (b.paid?1:0) - (a.paid?1:0));
-  const descExpanded = !!expandedDescs[course.id];
+  const detailsExpanded = !!expandedDescs[course.id];
 
   let rosterRows = '';
   if(enrolledList.length===0){
@@ -681,49 +736,47 @@ function courseCardHtml(course){
       <button class="btn btn-danger btn-sm" onclick="deleteCourse('${course.id}')">删除</button>
   ` : '';
 
-  const teacherInitial = teacher && teacher.name ? teacher.name.trim().charAt(0).toUpperCase() : '?';
-  const seatValueClass = meta.status==='full' ? 'seat-full' : meta.status==='low' ? 'seat-low' : '';
+  const statusText = meta.status==='full' ? '已满' : meta.status==='low' ? `仅剩 ${meta.remaining} 名` : '开放报名';
+  const seatText = meta.status==='full' ? `已报名 ${meta.enrolled}/${meta.cap}` : `剩余 ${meta.remaining}/${meta.cap}`;
 
   return `
-  <div class="card" style="--card-accent:${accentColor}">
-    <div class="card-teacher-tag">
-      <span class="mini-avatar">🍎</span>
-      <span class="mini-name">${teacher ? escapeHtml(teacher.name) : '未指定老师'}</span>
-    </div>
-    <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
-
-    <div class="info-grid">
-      <div class="info-cell">
-        <span class="info-label">🕐 上课时间</span>
-        <span class="info-value">${course.date? formatDateLabel(course.date) : '日期待定'}</span>
-        <span class="info-value info-value-sub">${formatTimeRange(course.startTime, course.endTime) || '时间待定'}</span>
+  <article class="card" style="--card-accent:${accentColor};--status-color:${accentColor};--status-bg:${statusBg}">
+    <div class="course-summary" role="button" tabindex="0" aria-expanded="${detailsExpanded}" aria-controls="details-${course.id}" onclick="toggleDesc('${course.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDesc('${course.id}')}">
+      <div class="course-summary-top">
+        <h3 class="course-name">${escapeHtml(course.name||'未命名课程')}</h3>
+        <span class="status-badge">${statusText}</span>
       </div>
-      <div class="info-cell">
-        <span class="info-label">🎓 适合年级</span>
-        <span class="info-value">${course.grade? escapeHtml(course.grade) : '年级未设置'}</span>
-      </div>
-      <div class="info-cell">
-        <span class="info-label">👥 剩余名额</span>
-        <span class="info-value ${seatValueClass}">${meta.status==='full' ? '已满' : `${meta.remaining} / ${meta.cap}`}</span>
-        ${seatDotsHtml(meta, true)}
+      <div class="core-meta">
+        <div class="core-time">
+          <span class="core-time-label">上课时间</span>
+          <span class="core-date">${course.date? formatDateLabel(course.date) : '日期待定'}</span>
+          <span class="core-clock">${formatTimeRange(course.startTime, course.endTime) || '时间待定'}</span>
+        </div>
+        <span class="core-seat">${seatText}</span>
       </div>
     </div>
 
-    <div class="desc-block">
-      <div class="desc-header">
-        <span class="desc-avatar">📖</span>
-        <span class="desc-label">课程简介</span>
-        ${course.description ? `<button class="desc-toggle visible ${descExpanded?'open':''}" id="desc-toggle-${course.id}" onclick="toggleDesc('${course.id}')"><span class="label">${descExpanded?'收起':'查看详情'}</span><span class="chev">›</span></button>` : ''}
-      </div>
-      <div class="desc-wrap">
-        <p class="desc ${course.description?'':'empty'} ${descExpanded?'expanded':''}" id="desc-${course.id}">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
-      </div>
-    </div>
+    <section class="roster-preview">
+      <h4 class="detail-section-title"><span>报名名单</span><span class="roster-count">${enrolledList.length}/${meta.cap} 人</span></h4>
+      <div class="roster" id="roster-${course.id}">${rosterRows}</div>
+    </section>
 
-    <div class="roster-label">📋 报名名单（${enrolledList.length}人）</div>
-    <div class="roster" id="roster-${course.id}">${rosterRows}</div>
+    <button class="details-trigger ${detailsExpanded?'open':''}" onclick="toggleDesc('${course.id}')" aria-expanded="${detailsExpanded}" aria-controls="details-${course.id}">
+      <span>${detailsExpanded?'收起课程详情':'查看课程详情'}</span><span class="chev">›</span>
+    </button>
+
+    <div class="course-details ${detailsExpanded?'expanded':''}" id="details-${course.id}">
+      <div class="detail-meta">
+        <div class="detail-meta-item"><span class="detail-meta-label">适合年级</span><span class="detail-meta-value">${course.grade? escapeHtml(course.grade) : '年级未设置'}</span></div>
+        <div class="detail-meta-item"><span class="detail-meta-label">报名情况</span><span class="detail-meta-value">${meta.enrolled}/${meta.cap} 人</span></div>
+      </div>
+      <section class="detail-section">
+        <h4 class="detail-section-title">课程简介</h4>
+        <p class="course-description">${course.description? escapeHtml(course.description) : '机构还没有填写课程简介'}</p>
+      </section>
+    </div>
     <div class="card-actions">${actionBtn}${adminBtns}</div>
-  </div>`;
+  </article>`;
 }
 
 function renderBoard(){
@@ -810,7 +863,7 @@ function renderBoard(){
     html += `<div class="teacher-group">
       <div class="teacher-header-card">
         <div class="teacher-header-top">
-          <span class="teacher-avatar-lg">🍎</span>
+          <span class="teacher-avatar-lg" aria-hidden="true">${escapeHtml(initials(teacherLabel))}</span>
           <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
         </div>${bioHtml}${feeHtml}
       </div>
