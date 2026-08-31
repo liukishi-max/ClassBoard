@@ -998,36 +998,8 @@ function teacherShareCopy(teacher){
 }
 
 function renderTeacherShareHint(){
-  let hint = document.getElementById('teacherShareHint');
-  if(!SHARE_TEACHER_ID){
-    if(hint) hint.remove();
-    return;
-  }
-  const teacher = state.teachers.find(t=>t.id===SHARE_TEACHER_ID);
-  if(!teacher) return;
-
-  if(!hint){
-    hint = document.createElement('div');
-    hint.id = 'teacherShareHint';
-    hint.className = 'teacher-share-hint';
-
-    const host =
-      document.querySelector('.container') ||
-      document.querySelector('main') ||
-      document.body;
-
-    const groups = document.getElementById('teacherGroups') ||
-      document.querySelector('.teacher-groups') ||
-      document.querySelector('.groups');
-
-    if(groups && groups.parentNode){
-      groups.parentNode.insertBefore(hint, groups);
-    }else{
-      host.prepend(hint);
-    }
-  }
-
-  hint.innerHTML = `当前是 <strong>${escapeHtml(teacher.name)} 老师课程板</strong>。如需转发给微信好友或群，请点击微信右上角“…”进行分享。`;
+  const hint = document.getElementById('teacherShareHint');
+  if(hint) hint.remove();
 }
 
 function renderBrand(){
@@ -1278,7 +1250,7 @@ function renderBoard(){
         <div class="teacher-header-top">
           <span class="teacher-avatar-lg" aria-hidden="true">${escapeHtml(initials(teacherLabel))}</span>
           <span class="teacher-name-lg">${escapeHtml(teacherLabel)}</span>
-          ${teacher ? `<button class="teacher-share-btn" onclick="enterTeacherBoard('${key}')" title="只分享这位老师的课程"><span aria-hidden="true">↗</span><span>分享课程</span></button>` : ''}
+          ${teacher ? `${SHARE_TEACHER_ID ? '' : `<button class="teacher-share-btn" onclick="enterTeacherBoard('${key}')" title="只分享这位老师的课程">进入该老师课程板</button>`}` : ''}
         </div>${bioHtml}${feeHtml}
       </div>
       <div class="teacher-group-body">`;
