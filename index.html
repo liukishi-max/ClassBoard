@@ -2034,25 +2034,74 @@ function downloadGeneratedPoster(ev){
     toast('海报还在生成，请稍等');
     return;
   }
-  const org = state.settings.orgName || 'ClassBoard';
+
   if(!currentPosterObjectUrl){
     currentPosterObjectUrl = URL.createObjectURL(currentPosterBlob);
   }
+
+  // 微信内置浏览器和 iPhone 对 <a download> 的支持都不稳定。
+  // 这里不再强行“下载”，而是打开原始高清海报，让用户长按保存到相册。
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  if(isWeChatBrowser() || isIOS){
+    openPosterSaveFullscreen();
+    return;
+  }
+
+  const org = state.settings.orgName || 'ClassBoard';
   const a = document.createElement('a');
   a.href = currentPosterObjectUrl;
   a.download = `${org}_课程报名海报.jpg`;
+  a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  a.remove();
+  setTimeout(()=>a.remove(), 100);
 }
 
+function openPosterSaveFullscreen(){
+  if(!currentPosterObjectUrl && currentPosterBlob){
+    currentPosterObjectUrl = URL.createObjectURL(currentPosterBlob);
+  }
+  if(!currentPosterObjectUrl){
+    toast('海报还在生成，请稍等');
+    return;
+  }
+
+  const old = document.getElementById('posterSaveFullscreen');
+  if(old) old.remove();
+
+  const layer = document.createElement('div');
+  layer.id = 'posterSaveFullscreen';
+  layer.className = 'wechat-poster-fullscreen';
+  layer.innerHTML = `
+    <div class="wechat-poster-toolbar">
+      <strong>长按海报保存到相册</strong>
+      <button type="button" class="wechat-poster-close" onclick="closePosterSaveFullscreen()">关闭</button>
+    </div>
+    <img class="wechat-poster-image" src="${currentPosterObjectUrl}" alt="课程报名海报">
+    <div class="wechat-poster-help">
+      微信 / iPhone 中请<strong>长按上面的完整海报</strong>，选择“保存图片”。<br>
+      保存后即可从微信相册发送给朋友或群。
+    </div>
+  `;
+  document.body.appendChild(layer);
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePosterSaveFullscreen(){
+  const layer = document.getElementById('posterSaveFullscreen');
+  if(layer) layer.remove();
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+}
 function openPosterModal(){
   const mobile = isMobileDevice();
   clearPosterShareCache();
   openModal(`
     <h2>生成分享海报</h2>
     <p class="sub">${mobile
-      ? '海报作为备用分享方式，可保存图片后从微信相册发送。'
+      ? '海报生成后，点击“保存图片”；微信 / iPhone 中会打开完整高清海报，长按即可保存到相册。'
       : '生成后可下载图片，或直接把图片拖进微信聊天窗口发送。'}</p>
 
     <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
@@ -2105,7 +2154,7 @@ async function generatePosterImage(){
         style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
       <div style="font-size:13px;color:#6f746f;text-align:center;line-height:1.65;">
         ${mobile
-          ? '需要图片版时，可保存海报后从微信相册发送。'
+          ? '点击“保存图片”后，长按完整海报即可保存到相册。'
           : '下载后直接把图片拖进微信聊天窗口，发送出去会按图片显示。'}
       </div>
     `;
@@ -2199,7 +2248,7 @@ function layoutPoster(ctx, W, draw){
 
   // 课程卡片（最多 4 条，按日期排序）
   const posterCourses = SHARE_TEACHER_ID ? state.courses.filter(c=>c.teacherId===SHARE_TEACHER_ID) : state.courses;
-  const list = [...posterCourses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,4);
+  const list = [...posterCourses].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   if(list.length===0){
     if(draw){
       ctx.fillStyle = '#5B6B63';
@@ -2276,6 +2325,7 @@ function layoutPoster(ctx, W, draw){
     ctx.textAlign = 'left';
   }
   y += footerH;
+  y += 18; // 底部安全留白，避免微信/手机保存时视觉上贴边或被裁切
 
   return Math.ceil(y);
 }
@@ -2288,7 +2338,8 @@ function renderQrOntoCanvas(ctx, canvas, W, H, resolve, reject){
     const qrPad = 16;
     // 二维码的纵向位置需要和 layoutPoster 里预留的位置完全对应，这里重新走一遍布局（不绘制）来算出 y
     const mctx = document.createElement('canvas').getContext('2d');
-    const yBeforeQr = layoutPoster(mctx, W, false) - (qrSize + 56); // 减去底部说明文字与二维码本身高度
+    const footerH = 38;
+    const yBeforeQr = layoutPoster(mctx, W, false) - (qrSize + footerH); // 与 layoutPoster 的实际底部高度保持一致
     const qrX = (W-qrSize)/2;
     const qrY = yBeforeQr;
 
