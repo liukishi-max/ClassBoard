@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClassBoard · 课程板</title>
+  <title>Enrichminds · 课程报名</title>
 
   <!-- 微信 / 社交平台分享预览：保留固定封面图；页面运行后仍会按机构/老师更新标题与说明 -->
   <meta property="og:title" content="Enrichminds · 课程报名">
-  <meta property="og:description" content="查看 Enrichminds 最新老师课程安排与报名信息。">
+  <meta property="og:description" content="查看 Enrichminds 最新课程安排与报名信息。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://class-board-iota.vercel.app/">
   <meta property="og:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
@@ -17,7 +17,7 @@
   <meta property="og:image:type" content="image/jpeg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Enrichminds · 课程报名">
-  <meta name="twitter:description" content="查看 Enrichminds 最新老师课程安排与报名信息。">
+  <meta name="twitter:description" content="查看 Enrichminds 最新课程安排与报名信息。">
   <meta name="twitter:image" content="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
   <link rel="image_src" href="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=630&fit=crop&auto=format&q=85">
 
@@ -973,7 +973,9 @@ function teacherShareCopy(teacher){
   const courseText = names.length ? names.join('、') : '课程安排';
   return {
     title: `${org} · ${teacher.name}老师课程`,
-    text: `${org}｜${teacher.name}老师课程：${courseText}`,
+    text: names.length
+      ? `${courseText}｜查看课程时间、名额与报名信息`
+      : `查看 ${teacher.name} 老师课程安排与报名信息`,
     courses
   };
 }
@@ -992,9 +994,9 @@ function renderBrand(){
   }else{
     document.title = `${org} · 课程板`;
     setMetaContent('meta[property="og:title"]', `${org} · 课程报名`);
-    setMetaContent('meta[property="og:description"]', `查看 ${org} 最新老师课程安排与报名信息。`);
+    setMetaContent('meta[property="og:description"]', `查看 ${org} 最新课程安排与报名信息。`);
     setMetaContent('meta[name="twitter:title"]', `${org} · 课程报名`);
-    setMetaContent('meta[name="twitter:description"]', `查看 ${org} 最新老师课程安排与报名信息。`);
+    setMetaContent('meta[name="twitter:description"]', `查看 ${org} 最新课程安排与报名信息。`);
   }
 }
 function renderHeaderActions(){
@@ -1287,7 +1289,7 @@ function openTeacherShareModal(teacherId){
 
   openModal(`
     <h2>分享老师课程</h2>
-    <p class="sub">分享出去的内容以机构名称和老师课程为主，不再使用原来的功能说明文字。</p>
+    <p class="sub">老师专属链接会使用“机构名称 · 老师课程”作为标题。复制后可直接粘贴到微信好友或群。</p>
     <div class="teacher-share-panel">
       <div class="teacher-share-summary">
         <div class="teacher-share-org">${escapeHtml(state.settings.orgName || 'ClassBoard')}</div>
@@ -1303,8 +1305,8 @@ function openTeacherShareModal(teacherId){
 
       <div class="teacher-share-qr"><div id="teacherShareQr"></div></div>
       <div class="teacher-share-tip">
-        电脑微信：点击上方按钮复制后，直接粘贴到微信群。<br>
-        手机微信：也可以扫码打开后，再从微信右上角转发到群。
+        复制链接后可直接粘贴到微信好友或群。<br>
+        在微信内打开老师专属页后，也可用右上角“…”直接转发。
       </div>
     </div>
     <div class="modal-actions">
@@ -1335,24 +1337,30 @@ async function shareTeacherCourses(teacherId){
 
   const shareUrl = buildTeacherShareUrl(teacherId);
   const copy = teacherShareCopy(teacher);
+
+  // 微信内置浏览器里不再强行调用系统 Web Share。
+  // 直接进入老师专属页，随后用微信右上角“...”转发，
+  // 这是最稳定的链接分享方式，也能保留老师专属标题。
+  if(isWeChatBrowser()){
+    window.location.href = shareUrl;
+    return;
+  }
+
   const shareData = { title: copy.title, text: copy.text, url: shareUrl };
 
-  // 桌面 Chrome/Windows 的 Web Share 往往只弹 Nearby Share，
-  // 不能保证出现微信，更不能直接指定某个微信群。因此桌面端直接用专属分享弹窗。
-  const mobile = isMobileDevice();
-  if(mobile && navigator.share){
+  // Safari / Chrome 等普通手机浏览器可使用系统链接分享。
+  if(isMobileDevice() && navigator.share){
     try{
       await navigator.share(shareData);
       return;
     }catch(err){
-      if(err && err.name==='AbortError') return;
-      // 系统分享失败时继续进入微信友好的自定义弹窗。
+      if(err && err.name === 'AbortError') return;
     }
   }
 
+  // 桌面或不支持系统分享时，用稳定的复制链接弹窗。
   openTeacherShareModal(teacherId);
 }
-
 function toggleDesc(courseId){
   expandedDescs[courseId] = !expandedDescs[courseId];
   renderBoard();
@@ -2014,7 +2022,7 @@ function openPosterModal(){
   openModal(`
     <h2>生成分享海报</h2>
     <p class="sub">${mobile
-      ? '生成后点击“转发图片”。在微信内会打开高清海报，长按图片即可发送给朋友或保存。'
+      ? '海报作为备用分享方式，可保存图片后从微信相册发送。'
       : '生成后可下载图片，或直接把图片拖进微信聊天窗口发送。'}</p>
 
     <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
@@ -2025,7 +2033,7 @@ function openPosterModal(){
       <div class="poster-action-row">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">关闭</button>
         <button type="button" id="posterSaveBtn" class="btn btn-ghost" style="display:none;" onclick="downloadGeneratedPoster(event)">保存图片</button>
-        <button type="button" id="posterShareBtn" class="btn btn-primary poster-share-btn" style="display:none;" onclick="shareGeneratedPoster(event)">转发图片</button>
+        
       </div>
     </div>
   `);
@@ -2067,7 +2075,7 @@ async function generatePosterImage(){
         style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
       <div style="font-size:13px;color:#6f746f;text-align:center;line-height:1.65;">
         ${mobile
-          ? '微信内点“转发图片”后会打开高清海报，长按图片即可发送给朋友；不会再跳出当前页面。'
+          ? '需要图片版时，可保存海报后从微信相册发送。'
           : '下载后直接把图片拖进微信聊天窗口，发送出去会按图片显示。'}
       </div>
     `;
