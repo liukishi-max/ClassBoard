@@ -736,6 +736,58 @@
     }
   }
 
+
+  .wechat-poster-fullscreen{
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    background:rgba(0,0,0,.94);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:18px 14px 28px;
+    overflow:auto;
+  }
+  .wechat-poster-toolbar{
+    width:min(420px,100%);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:12px;
+    color:#fff;
+  }
+  .wechat-poster-toolbar strong{
+    font-size:15px;
+    font-weight:700;
+  }
+  .wechat-poster-close{
+    border:0;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    border-radius:999px;
+    padding:8px 12px;
+    font-size:13px;
+  }
+  .wechat-poster-image{
+    width:min(420px,100%);
+    height:auto;
+    display:block;
+    border-radius:12px;
+    background:#fff;
+    -webkit-touch-callout:default;
+    user-select:auto;
+  }
+  .wechat-poster-help{
+    width:min(420px,100%);
+    margin-top:14px;
+    color:rgba(255,255,255,.88);
+    font-size:13px;
+    line-height:1.65;
+    text-align:center;
+  }
+
 </style>
 </head>
 <body>
@@ -1851,6 +1903,49 @@ function clearPosterShareCache(){
   }
 }
 
+
+function isWeChatBrowser(){
+  return /MicroMessenger/i.test(navigator.userAgent || '');
+}
+
+function openWechatPosterFullscreen(){
+  if(!currentPosterObjectUrl && currentPosterBlob){
+    currentPosterObjectUrl = URL.createObjectURL(currentPosterBlob);
+  }
+  if(!currentPosterObjectUrl){
+    toast('海报还在生成，请稍等');
+    return;
+  }
+
+  const old = document.getElementById('wechatPosterFullscreen');
+  if(old) old.remove();
+
+  const layer = document.createElement('div');
+  layer.id = 'wechatPosterFullscreen';
+  layer.className = 'wechat-poster-fullscreen';
+  layer.innerHTML = `
+    <div class="wechat-poster-toolbar">
+      <strong>长按下面图片即可转发</strong>
+      <button type="button" class="wechat-poster-close" onclick="closeWechatPosterFullscreen()">关闭</button>
+    </div>
+    <img class="wechat-poster-image" src="${currentPosterObjectUrl}" alt="课程分享海报">
+    <div class="wechat-poster-help">
+      在微信内请<strong>长按海报图片</strong>，然后选择“发送给朋友”或“保存图片”。<br>
+      这样不会跳出当前页面，也不会因为系统分享面板而退出。
+    </div>
+  `;
+  document.body.appendChild(layer);
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeWechatPosterFullscreen(){
+  const layer = document.getElementById('wechatPosterFullscreen');
+  if(layer) layer.remove();
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+}
+
 async function shareGeneratedPoster(ev){
   if(ev){
     ev.preventDefault();
@@ -1861,6 +1956,14 @@ async function shareGeneratedPoster(ev){
     return;
   }
 
+  // 微信内置浏览器对 Web Share + 文件支持不稳定，
+  // 常见现象就是点“转发”后分享层直接消失或页面跳出。
+  // 在微信里改为直接展示原始海报，让微信自己的“长按图片”菜单处理转发。
+  if(isWeChatBrowser()){
+    openWechatPosterFullscreen();
+    return;
+  }
+
   const org = state.settings.orgName || 'ClassBoard';
   const file = currentPosterFile || new File(
     [currentPosterBlob],
@@ -1868,8 +1971,6 @@ async function shareGeneratedPoster(ev){
     {type:'image/jpeg'}
   );
 
-  // 真正把“图片文件”交给手机系统分享，而不是分享网页链接。
-  // 支持时微信会作为可选目标出现；取消系统分享后，当前海报弹窗仍保留。
   try{
     if(navigator.share){
       const data = { files:[file], title:`${org} · 课程报名` };
@@ -1883,10 +1984,9 @@ async function shareGeneratedPoster(ev){
     console.warn('图片系统分享失败：', err);
   }
 
-  // 不支持文件分享时，不关闭弹窗，直接给出保存/发送提示。
-  toast('当前浏览器不能直接转发图片，请先保存图片，再从微信相册发送', true);
+  // 其他不支持文件分享的手机，也使用图片全屏方案，不再让页面“跳出”。
+  openWechatPosterFullscreen();
 }
-
 function downloadGeneratedPoster(ev){
   if(ev){
     ev.preventDefault();
@@ -1914,7 +2014,7 @@ function openPosterModal(){
   openModal(`
     <h2>生成分享海报</h2>
     <p class="sub">${mobile
-      ? '生成后可以直接尝试“转发图片”；如果微信没有出现在系统分享里，也可以先保存，再从微信相册发送。'
+      ? '生成后点击“转发图片”。在微信内会打开高清海报，长按图片即可发送给朋友或保存。'
       : '生成后可下载图片，或直接把图片拖进微信聊天窗口发送。'}</p>
 
     <div id="posterPreviewBox" style="display:flex;flex-direction:column;align-items:center;gap:12px;min-height:120px;justify-content:center;">
@@ -1967,7 +2067,7 @@ async function generatePosterImage(){
         style="width:100%;max-width:340px;border-radius:12px;box-shadow:var(--shadow);display:block;-webkit-touch-callout:default;">
       <div style="font-size:13px;color:#6f746f;text-align:center;line-height:1.65;">
         ${mobile
-          ? '优先点“转发图片”。如果系统没有微信选项，就点“保存图片”，再从微信相册发送。'
+          ? '微信内点“转发图片”后会打开高清海报，长按图片即可发送给朋友；不会再跳出当前页面。'
           : '下载后直接把图片拖进微信聊天窗口，发送出去会按图片显示。'}
       </div>
     `;
@@ -1977,12 +2077,8 @@ async function generatePosterImage(){
     if(saveBtn) saveBtn.style.display = 'inline-flex';
 
     if(shareBtn){
-      let canFileShare = false;
-      try{
-        canFileShare = !!navigator.share &&
-          (!navigator.canShare || navigator.canShare({files:[currentPosterFile]}));
-      }catch(e){}
-      shareBtn.style.display = canFileShare ? 'inline-flex' : 'none';
+      const canUseShareButton = isMobileDevice();
+      shareBtn.style.display = canUseShareButton ? 'inline-flex' : 'none';
     }
   }catch(err){
     box.innerHTML = `<div style="color:var(--brick);font-size:13px;">海报生成失败：${escapeHtml(String(err && err.message || err))}</div>`;
